@@ -96,8 +96,9 @@ pub struct GridPage {
     pub unreviewed_total: i64,
 }
 
-/// Construit la clause `WHERE` et ses paramètres.
-fn where_clause(filter: &GridFilter) -> (String, Vec<Box<dyn ToSql>>) {
+/// Construit la clause `WHERE` et ses paramètres. Partagée avec les statistiques :
+/// analyser une sélection doit donner exactement ce que la grille montre.
+pub fn where_clause(filter: &GridFilter) -> (String, Vec<Box<dyn ToSql>>) {
     let mut clauses = vec!["s.deleted_at IS NULL".to_string()];
     let mut params: Vec<Box<dyn ToSql>> = Vec::new();
 

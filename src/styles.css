@@ -795,3 +795,105 @@ label.inline {
 input.tiny {
   width: 4.5em;
 }
+
+/* --- Graphiques ---------------------------------------------------------- */
+
+.chart {
+  width: 100%;
+}
+
+.chart__bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: var(--chart-h, 160px);
+  padding-top: 18px;
+}
+
+.chart__col {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  height: 100%;
+  min-width: 0;
+}
+
+/* Une barre atténuée reste lisible : elle est présente, pas au premier plan. */
+.chart__col--dim .chart__bar {
+  opacity: 0.45;
+}
+
+.chart__bar {
+  width: 100%;
+  min-height: 1px;
+  border-radius: 2px 2px 0 0;
+}
+
+.chart__value {
+  order: -1;
+  font-size: 0.7em;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.chart__label,
+.chart__hint {
+  margin-top: 3px;
+  font-size: 0.7em;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+.chart__hint {
+  margin-top: 0;
+  opacity: 0.7;
+}
+
+/* --- Rythme par espèce --------------------------------------------------- */
+
+.multiples {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.multiples__row {
+  display: grid;
+  grid-template-columns: minmax(140px, 200px) 1fr;
+  align-items: center;
+  gap: 10px;
+}
+
+.multiples__name {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.88em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.multiples__track {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 1px;
+}
+
+.multiples__cell {
+  height: 18px;
+  border-radius: 2px;
+}
+
+.multiples__tick {
+  font-size: 0.68em;
+  color: var(--muted);
+  text-align: center;
+}
+
+.multiples__axis {
+  margin-top: 2px;
+}

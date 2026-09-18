@@ -5,10 +5,12 @@ import { Grid } from './views/Grid';
 import { Scan } from './views/Scan';
 import { Sequences } from './views/Sequences';
 import { SpeciesList } from './views/SpeciesList';
+import { Stats } from './views/Stats';
 import { Traps } from './views/Traps';
 
 const TABS = [
   { id: 'grid', label: 'Dépouillement' },
+  { id: 'stats', label: 'Statistiques' },
   { id: 'scan', label: 'Indexation' },
   { id: 'sequences', label: 'Séquences' },
   { id: 'traps', label: 'Pièges' },
@@ -52,6 +54,7 @@ export default function App() {
         )}
 
         {tab === 'grid' && <Grid onError={setError} />}
+        {tab === 'stats' && <Stats onError={setError} />}
         {tab === 'scan' && <Scan onError={setError} />}
         {tab === 'sequences' && <Sequences onError={setError} />}
         {tab === 'traps' && <Traps onError={setError} />}

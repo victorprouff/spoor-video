@@ -9,6 +9,7 @@ use tauri::Manager;
 use crate::annotations::{self, AnnotateReport, Annotation, Tag};
 use crate::db::{Db, DbError};
 use crate::grid::{self, GridFilter, GridPage};
+use crate::stats::{self, Stats};
 use crate::scan::{self, ScanReport};
 use crate::sequences::{self, RegroupReport, Sequence};
 use crate::species::{self, Species, SpeciesInput};
@@ -329,4 +330,11 @@ pub fn annotate_sequences(
 #[tauri::command]
 pub fn list_tags(db: tauri::State<'_, Db>) -> Result<Vec<Tag>, DbError> {
     annotations::list_tags(&db.conn.lock().unwrap())
+}
+
+// --- Statistiques ---------------------------------------------------------
+
+#[tauri::command]
+pub fn stats(db: tauri::State<'_, Db>, filter: GridFilter) -> Result<Stats, DbError> {
+    stats::compute(&db.conn.lock().unwrap(), filter)
 }

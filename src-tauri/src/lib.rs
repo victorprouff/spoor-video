@@ -9,6 +9,7 @@ mod sequences;
 mod settings;
 mod sun;
 mod species;
+mod stats;
 mod traps;
 
 use tauri::Manager;
@@ -119,6 +120,7 @@ pub fn run() {
             commands::grid_page,
             commands::annotate_sequences,
             commands::list_tags,
+            commands::stats,
         ])
         .run(tauri::generate_context!())
         .expect("erreur au lancement de l'application");

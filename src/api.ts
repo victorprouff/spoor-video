@@ -245,6 +245,54 @@ export type AnnotateReport = {
 
 export type Tag = { id: string; name: string; usage_count: number };
 
+export type HourBucket = { hour: number; count: number };
+export type SpeciesHour = {
+  species_id: string;
+  common_name: string;
+  color: string | null;
+  hour: number;
+  count: number;
+};
+export type SolarBucket = { bucket: number; count: number };
+export type MonthBucket = { month: number; count: number; years: number };
+export type TrapStat = {
+  trap_id: string;
+  name: string;
+  sequences: number;
+  videos: number;
+  species_richness: number;
+  first_at: string | null;
+  last_at: string | null;
+  span_days: number | null;
+};
+export type SpeciesStat = {
+  species_id: string;
+  common_name: string;
+  color: string | null;
+  sequences: number;
+  videos: number;
+  certain: number;
+  traps: number;
+  first_at: string | null;
+  last_at: string | null;
+};
+
+export type Stats = {
+  total_sequences: number;
+  total_videos: number;
+  identified_sequences: number;
+  unreviewed_sequences: number;
+  without_position: number;
+  hours: HourBucket[];
+  species_hours: SpeciesHour[];
+  solar: SolarBucket[];
+  months: MonthBucket[];
+  traps: TrapStat[];
+  species: SpeciesStat[];
+};
+
+export const stats = (filter: GridFilter) => invoke<Stats>('stats', { filter });
+
 export const gridPage = (filter: GridFilter) => invoke<GridPage>('grid_page', { filter });
 export const annotateSequences = (sequenceIds: string[], annotation: Annotation) =>
   invoke<AnnotateReport>('annotate_sequences', { sequenceIds, annotation });
