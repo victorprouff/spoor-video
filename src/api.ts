@@ -294,20 +294,10 @@ export type CopyReport = {
   bytes: number;
 };
 
-export type PositionGroup = {
-  trap_id: string;
-  trap_name: string;
-  latitude: number | null;
-  longitude: number | null;
-  video_count: number;
-  video_ids: string[];
-  first_at: string | null;
-  last_at: string | null;
-  any_manual: boolean;
-};
-
-export const positionGroups = (trapId: string | null, since: string | null) =>
-  invoke<PositionGroup[]>('position_groups', { trapId, since });
+export const trapPositionCandidates = (trapId: string, includeManual: boolean) =>
+  invoke<number>('trap_position_candidates', { trapId, includeManual });
+export const applyTrapPosition = (trapId: string, includeManual: boolean) =>
+  invoke<number>('apply_trap_position', { trapId, includeManual });
 export const setVideoPositions = (
   videoIds: string[],
   latitude: number | null,

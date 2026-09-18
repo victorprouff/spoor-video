@@ -64,6 +64,14 @@ au moment de l'indexation ; ensuite la vidéo garde la sienne. Déplacer un piè
 faites. C'est le même principe que `recorded_at` / `recorded_at_manual` — la donnée et la
 correction cohabitent, rien n'est réécrit dans le dos.
 
+Deux rattrapages, chacun là où la question se pose — et non dans un écran dédié qu'il
+faudrait penser à ouvrir :
+- **depuis un piège** : « Appliquer aux vidéos » donne sa position aux captures déjà
+  importées. C'est le cas courant quand on renseigne les coordonnées après l'import.
+  Les positions choisies à la main sont épargnées : une correction est une décision ;
+- **depuis la vue vidéo** : sélectionner des lignes et poser un point sur la carte, pour
+  le réglage fin. Le filtre « sans position » sert de porte d'entrée.
+
 ⚠️ Conséquence à connaître : un piège déplacé garde son identité, donc la **comparaison
 entre emplacements** (§7) regroupe sous un même nom des positions différentes. Quand le
 déplacement est important, créer un nouveau piège reste plus juste.

@@ -11,116 +11,6 @@ use crate::db::DbError;
 use crate::sequences;
 use crate::traps::EFFECTIVE_RECORDED_AT;
 
-#[derive(Debug, serde::Serialize)]
-pub struct VideoPosition {
-    pub id: String,
-    pub file_name: String,
-    pub trap_id: String,
-    pub trap_name: String,
-    pub sequence_id: Option<String>,
-    pub recorded_at: Option<String>,
-    pub thumbnail_path: Option<String>,
-    pub latitude: Option<f64>,
-    pub longitude: Option<f64>,
-    pub altitude_m: Option<f64>,
-    pub position_manual: bool,
-    /// Position actuelle du piège, pour proposer « revenir au piège ».
-    pub trap_latitude: Option<f64>,
-    pub trap_longitude: Option<f64>,
-}
-
-/// Regroupe les vidéos par position distincte : ajuster 400 vidéos une par une n'a
-/// aucun sens, alors qu'elles partagent presque toujours le même point.
-#[derive(Debug, serde::Serialize)]
-pub struct PositionGroup {
-    pub trap_id: String,
-    pub trap_name: String,
-    pub latitude: Option<f64>,
-    pub longitude: Option<f64>,
-    pub video_count: i64,
-    pub video_ids: Vec<String>,
-    pub first_at: Option<String>,
-    pub last_at: Option<String>,
-    pub any_manual: bool,
-}
-
-fn round(v: Option<f64>) -> Option<i64> {
-    // Regroupement au cent-millième de degré (~1 m) : deux saisies manuelles du même
-    // point ne doivent pas produire deux groupes.
-    v.map(|v| (v * 100_000.0).round() as i64)
-}
-
-/// Les groupes de position des vidéos indexées lors du dernier import, ou de toutes
-/// les vidéos d'un piège.
-pub fn groups(
-    conn: &Connection,
-    trap_id: Option<&str>,
-    only_since: Option<&str>,
-) -> Result<Vec<PositionGroup>, DbError> {
-    let mut clauses = vec!["v.deleted_at IS NULL".to_string()];
-    let mut params: Vec<Box<dyn rusqlite::ToSql>> = Vec::new();
-    if let Some(id) = trap_id {
-        clauses.push("v.trap_id = ?".into());
-        params.push(Box::new(id.to_string()));
-    }
-    if let Some(since) = only_since {
-        clauses.push("v.imported_at >= ?".into());
-        params.push(Box::new(since.to_string()));
-    }
-    let where_sql = clauses.join(" AND ");
-
-    let sql = format!(
-        "SELECT v.id, v.trap_id, t.name, v.latitude, v.longitude, v.position_manual, {eff}
-         FROM videos v JOIN traps t ON t.id = v.trap_id
-         WHERE {where_sql}
-         ORDER BY t.name, {eff}",
-        eff = EFFECTIVE_RECORDED_AT
-    );
-    let refs: Vec<&dyn rusqlite::ToSql> = params.iter().map(|p| p.as_ref()).collect();
-
-    let mut stmt = conn.prepare(&sql)?;
-    let mut rows = stmt.query(refs.as_slice())?;
-
-    let mut out: Vec<PositionGroup> = Vec::new();
-    while let Some(r) = rows.next()? {
-        let id: String = r.get(0)?;
-        let trap_id: String = r.get(1)?;
-        let trap_name: String = r.get(2)?;
-        let latitude: Option<f64> = r.get(3)?;
-        let longitude: Option<f64> = r.get(4)?;
-        let manual: bool = r.get::<_, i64>(5)? != 0;
-        let at: Option<String> = r.get(6)?;
-
-        let key = (trap_id.clone(), round(latitude), round(longitude));
-        match out.iter_mut().find(|g| {
-            (g.trap_id.clone(), round(g.latitude), round(g.longitude)) == key
-        }) {
-            Some(g) => {
-                g.video_count += 1;
-                g.video_ids.push(id);
-                g.any_manual |= manual;
-                if at.is_some() && (g.last_at.is_none() || at > g.last_at) {
-                    g.last_at = at;
-                }
-            }
-            None => out.push(PositionGroup {
-                trap_id,
-                trap_name,
-                latitude,
-                longitude,
-                video_count: 1,
-                video_ids: vec![id],
-                first_at: at.clone(),
-                last_at: at,
-                any_manual: manual,
-            }),
-        }
-    }
-
-    out.sort_by(|a, b| b.video_count.cmp(&a.video_count));
-    Ok(out)
-}
-
 /// Fixe la position d'un lot de vidéos. `None` efface la position.
 pub fn set_positions(
     conn: &Connection,
@@ -235,35 +125,38 @@ mod tests {
     }
 
     #[test]
-    fn regroupe_les_videos_par_position() {
-        let conn = db();
-        video(&conn, "v1", Some(47.32), Some(5.04));
-        video(&conn, "v2", Some(47.32), Some(5.04));
-        video(&conn, "v3", Some(47.40), Some(5.10));
-
-        let g = groups(&conn, None, None).unwrap();
-        assert_eq!(g.len(), 2, "deux points distincts");
-        assert_eq!(g[0].video_count, 2, "le groupe le plus fourni d'abord");
-    }
-
-    #[test]
-    fn deux_saisies_du_meme_point_ne_font_qu_un_groupe() {
-        let conn = db();
-        // Un écart de moins d'un mètre.
-        video(&conn, "v1", Some(47.320001), Some(5.040001));
-        video(&conn, "v2", Some(47.320002), Some(5.040002));
-        assert_eq!(groups(&conn, None, None).unwrap().len(), 1);
-    }
-
-    #[test]
-    fn les_videos_sans_position_forment_leur_propre_groupe() {
+    fn applique_la_position_du_piege_aux_videos_deja_indexees() {
         let conn = db();
         video(&conn, "v1", None, None);
-        video(&conn, "v2", Some(47.32), Some(5.04));
+        video(&conn, "v2", None, None);
+        // Une vidéo dont la position a été choisie à la main.
+        video(&conn, "v3", Some(47.9), Some(5.9));
+        set_positions(&conn, &["v3".into()], Some(47.9), Some(5.9), None).unwrap();
 
-        let g = groups(&conn, None, None).unwrap();
-        assert_eq!(g.len(), 2);
-        assert!(g.iter().any(|x| x.latitude.is_none()));
+        assert_eq!(trap_position_candidates(&conn, "t1", false).unwrap(), 2);
+        assert_eq!(trap_position_candidates(&conn, "t1", true).unwrap(), 3);
+
+        assert_eq!(apply_trap_position(&conn, "t1", false).unwrap(), 2);
+        let manuelle: f64 = conn
+            .query_row("SELECT latitude FROM videos WHERE id = 'v3'", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(
+            manuelle, 47.9,
+            "une correction manuelle est une décision : une action de masse ne l'efface pas"
+        );
+        let reprise: f64 = conn
+            .query_row("SELECT latitude FROM videos WHERE id = 'v1'", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(reprise, 47.32);
+    }
+
+    #[test]
+    fn refuse_d_appliquer_la_position_d_un_piege_qui_n_en_a_pas() {
+        let conn = db();
+        conn.execute("UPDATE traps SET latitude = NULL, longitude = NULL", [])
+            .unwrap();
+        video(&conn, "v1", None, None);
+        assert!(apply_trap_position(&conn, "t1", false).is_err());
     }
 
     #[test]
@@ -330,4 +223,67 @@ mod tests {
             "un disque débranché ne doit pas casser l'écran d'accueil"
         );
     }
+}
+
+/// Combien de vidéos d'un piège prendraient sa position actuelle.
+///
+/// `include_manual` dit s'il faut aussi réécrire celles dont la position a été choisie
+/// à la main. Par défaut non : une correction manuelle est une décision, et une action
+/// de masse ne doit pas l'effacer sans qu'on l'ait demandé.
+pub fn trap_position_candidates(
+    conn: &Connection,
+    trap_id: &str,
+    include_manual: bool,
+) -> Result<i64, DbError> {
+    let extra = if include_manual {
+        ""
+    } else {
+        " AND position_manual = 0"
+    };
+    Ok(conn.query_row(
+        &format!(
+            "SELECT COUNT(*) FROM videos
+             WHERE trap_id = ?1 AND deleted_at IS NULL{extra}"
+        ),
+        [trap_id],
+        |r| r.get(0),
+    )?)
+}
+
+/// Applique la position actuelle du piège à ses vidéos déjà indexées.
+///
+/// Sert au cas courant : on renseigne les coordonnées d'un piège **après** avoir importé
+/// ses vidéos. Sans cela, celles-ci resteraient sans position pour toujours, et ni le
+/// rythme solaire ni le filtre jour/nuit ne fonctionneraient pour elles.
+pub fn apply_trap_position(
+    conn: &Connection,
+    trap_id: &str,
+    include_manual: bool,
+) -> Result<usize, DbError> {
+    let (lat, lng, alt): (Option<f64>, Option<f64>, Option<f64>) = conn.query_row(
+        "SELECT latitude, longitude, altitude_m FROM traps WHERE id = ?1 AND deleted_at IS NULL",
+        [trap_id],
+        |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+    )?;
+    if lat.is_none() || lng.is_none() {
+        return Err(DbError::Other(
+            "ce piège n'a pas de coordonnées : les renseigner d'abord".into(),
+        ));
+    }
+
+    let extra = if include_manual {
+        ""
+    } else {
+        " AND position_manual = 0"
+    };
+    let changed = conn.execute(
+        &format!(
+            "UPDATE videos SET latitude = ?2, longitude = ?3, altitude_m = ?4, updated_at = ?5
+             WHERE trap_id = ?1 AND deleted_at IS NULL{extra}"
+        ),
+        params![trap_id, lat, lng, alt, Utc::now().to_rfc3339()],
+    )?;
+
+    sequences::refresh_sun(conn)?;
+    Ok(changed)
 }

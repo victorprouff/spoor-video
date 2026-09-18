@@ -1,9 +1,10 @@
 import { useCallback, useEffect, useState } from 'react';
 import { convertFileSrc } from '@tauri-apps/api/core';
 
-import { STATES, SUN_PHASES, listSpecies, listTraps, listVideos } from '../api';
+import { STATES, SUN_PHASES, listSpecies, listTraps, listVideos, setVideoPositions } from '../api';
 import type { Species, Trap, VideoFilter, VideoPage, VideoRow } from '../api';
 import { EMPTY_FILTER, Filters } from '../components/Filters';
+import { MapPicker } from '../components/MapPicker';
 import { VideoPlayer } from '../components/VideoPlayer';
 import { ViewControls, useDisplay, useThumbSize } from '../components/ViewControls';
 import { formatDateTime, formatDuration } from '../format';
@@ -39,6 +40,29 @@ export function Videos({ onError }: { onError: (e: string | null) => void }) {
   // précise. La grille sert à balayer d'un coup d'œil.
   const [display, setDisplay] = useDisplay('videos', 'list');
   const [thumbSize, setThumbSize] = useThumbSize('videos', 220);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [positioning, setPositioning] = useState(false);
+  const [lat, setLat] = useState<number | null>(null);
+  const [lng, setLng] = useState<number | null>(null);
+
+  const toggle = (id: string) => {
+    const next = new Set(selected);
+    if (next.has(id)) next.delete(id);
+    else next.add(id);
+    setSelected(next);
+  };
+
+  const savePosition = async () => {
+    onError(null);
+    try {
+      await setVideoPositions([...selected], lat, lng, null);
+      setPositioning(false);
+      setSelected(new Set());
+      await refresh();
+    } catch (e) {
+      onError(String(e));
+    }
+  };
 
   const refresh = useCallback(async () => {
     try {
@@ -64,7 +88,7 @@ export function Videos({ onError }: { onError: (e: string | null) => void }) {
   const limit = filter.limit;
 
   return (
-    <div className="stack">
+    <div className={selected.size > 0 ? 'stack grid-view' : 'stack'}>
       <Filters
         filter={filter}
         onChange={(f) => setFilter({ ...filter, ...f })}
@@ -224,6 +248,7 @@ export function Videos({ onError }: { onError: (e: string | null) => void }) {
             <thead>
               <tr>
                 <th />
+                <th />
                 <th>Date</th>
                 <th>Piège</th>
                 <th>Espèces</th>
@@ -235,6 +260,13 @@ export function Videos({ onError }: { onError: (e: string | null) => void }) {
             <tbody>
               {rows.map((v) => (
                 <tr key={v.id} className={v.file_state === 'present' ? undefined : 'inactive'}>
+                  <td>
+                    <input
+                      type="checkbox"
+                      checked={selected.has(v.id)}
+                      onChange={() => toggle(v.id)}
+                    />
+                  </td>
                   <td>
                     {v.thumbnail_path ? (
                       <img
@@ -350,6 +382,65 @@ export function Videos({ onError }: { onError: (e: string | null) => void }) {
           </div>
         )}
       </section>
+
+      {selected.size > 0 && (
+        <div className="actionbar">
+          <strong>{selected.size} vidéo(s) sélectionnée(s)</strong>
+          <button
+            className="primary"
+            onClick={() => {
+              const first = rows.find((r) => selected.has(r.id));
+              setLat(first?.latitude ?? null);
+              setLng(first?.longitude ?? null);
+              setPositioning(true);
+            }}
+          >
+            Définir la position…
+          </button>
+          <span className="app__spacer" />
+          <button onClick={() => setSelected(new Set())}>Annuler</button>
+        </div>
+      )}
+
+      {positioning && (
+        <section className="panel stack">
+          <h2>Position de {selected.size} vidéo(s)</h2>
+          <MapPicker
+            latitude={lat}
+            longitude={lng}
+            onChange={(a, b) => {
+              setLat(a);
+              setLng(b);
+            }}
+          />
+          <div className="fields">
+            <label>
+              Latitude
+              <input
+                value={lat ?? ''}
+                onChange={(e) => setLat(e.target.value ? Number(e.target.value) : null)}
+              />
+            </label>
+            <label>
+              Longitude
+              <input
+                value={lng ?? ''}
+                onChange={(e) => setLng(e.target.value ? Number(e.target.value) : null)}
+              />
+            </label>
+          </div>
+          <div className="row row--flush">
+            <button className="primary" onClick={savePosition} disabled={lat == null}>
+              Appliquer
+            </button>
+            <button onClick={() => setPositioning(false)}>Annuler</button>
+          </div>
+          <p className="muted small">
+            Ces vidéos garderont cette position même si le piège est déplacé ensuite. Le lever
+            et le coucher du soleil sont recalculés dans la foulée.
+          </p>
+        </section>
+      )}
 
       {playing && (
         <VideoPlayer

@@ -3,7 +3,6 @@ import { useCallback, useEffect, useState } from 'react';
 import { pendingVideos } from './api';
 import { useTheme } from './theme';
 import { Grid } from './views/Grid';
-import { Positions } from './views/Positions';
 import { Scan } from './views/Scan';
 import { SpeciesList } from './views/SpeciesList';
 import { Stats } from './views/Stats';
@@ -15,7 +14,6 @@ const TABS = [
   { id: 'grid', label: 'Dépouillement' },
   { id: 'videos', label: 'Vidéos' },
   { id: 'scan', label: 'Indexation' },
-  { id: 'positions', label: 'Positions' },
   { id: 'traps', label: 'Pièges' },
   { id: 'species', label: 'Espèces' },
 ] as const;
@@ -111,7 +109,6 @@ export default function App() {
         {tab === 'grid' && <Grid onError={setError} />}
         {tab === 'videos' && <Videos onError={setError} />}
         {tab === 'scan' && <Scan onError={setError} onScanned={checkPending} />}
-        {tab === 'positions' && <Positions onError={setError} />}
         {tab === 'traps' && <Traps onError={setError} />}
         {tab === 'species' && <SpeciesList onError={setError} />}
       </main>

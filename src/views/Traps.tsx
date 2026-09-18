@@ -1,11 +1,13 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import {
+  applyTrapPosition,
   createTrap,
   deleteTrap,
   linkFolderToTrap,
   listRootFolders,
   listTraps,
+  trapPositionCandidates,
   updateTrap,
 } from '../api';
 import type { RootFolder, Trap, TrapInput } from '../api';
@@ -31,6 +33,37 @@ export function Traps({ onError }: { onError: (e: string | null) => void }) {
   const [folders, setFolders] = useState<RootFolder[]>([]);
   const [editing, setEditing] = useState<{ id: string | null; input: TrapInput } | null>(null);
   const [confirming, setConfirming] = useState<Trap | null>(null);
+  const [applying, setApplying] = useState<{ trap: Trap; count: number } | null>(null);
+  const [note, setNote] = useState<string | null>(null);
+
+  /**
+   * Cas courant : on renseigne les coordonnées d'un piège APRÈS avoir importé ses
+   * vidéos. Celles-ci gardent alors la position qu'elles avaient à l'indexation —
+   * aucune — et resteraient ainsi pour toujours. D'où ce rattrapage explicite.
+   */
+  const askApply = async (trap: Trap) => {
+    setNote(null);
+    onError(null);
+    try {
+      setApplying({ trap, count: await trapPositionCandidates(trap.id, false) });
+    } catch (e) {
+      onError(String(e));
+    }
+  };
+
+  const doApply = async (includeManual: boolean) => {
+    if (!applying) return;
+    onError(null);
+    try {
+      const n = await applyTrapPosition(applying.trap.id, includeManual);
+      setApplying(null);
+      setNote(`${n} vidéo(s) ont pris la position de « ${applying.trap.name} »`);
+      await refresh();
+    } catch (e) {
+      setApplying(null);
+      onError(String(e));
+    }
+  };
 
   const refresh = useCallback(async () => {
     try {
@@ -163,6 +196,13 @@ export function Traps({ onError }: { onError: (e: string | null) => void }) {
                     )}
                   </td>
                   <td className="row--actions">
+                    <button
+                      onClick={() => askApply(t)}
+                      disabled={t.latitude == null || t.video_count === 0}
+                      title="Donner cette position aux vidéos déjà indexées"
+                    >
+                      Appliquer aux vidéos
+                    </button>
                     <button onClick={() => setEditing({ id: t.id, input: toInput(t) })}>
                       Modifier
                     </button>
@@ -174,6 +214,31 @@ export function Traps({ onError }: { onError: (e: string | null) => void }) {
           </table>
         )}
       </section>
+
+      {note && (
+        <div className="panel notice">
+          <p>
+            {note}{' '}
+            <button className="small" onClick={() => setNote(null)}>
+              Fermer
+            </button>
+          </p>
+        </div>
+      )}
+
+      {applying && (
+        <Confirm
+          title={`Appliquer la position de « ${applying.trap.name} » ?`}
+          body={
+            applying.count === 0
+              ? 'Toutes les vidéos de ce piège ont déjà une position choisie à la main. Elles ne seront pas touchées.'
+              : `${applying.count} vidéo(s) prendront cette position. Celles dont la position a été ajustée à la main sont laissées telles quelles. Le lever et le coucher du soleil sont recalculés dans la foulée.`
+          }
+          confirmLabel="Appliquer"
+          onConfirm={() => doApply(false)}
+          onCancel={() => setApplying(null)}
+        />
+      )}
 
       {editing && (
         <TrapForm
@@ -345,7 +410,8 @@ function TrapForm({
       <p className="muted small">
         La position du piège sert de <strong>valeur par défaut</strong> aux vidéos indexées
         ensuite. Déplacer un piège ne déplace jamais les captures déjà faites : chacune garde
-        la sienne, ajustable dans l’onglet Positions.
+        la sienne. Pour donner cette position aux vidéos déjà importées — le cas quand on
+        renseigne les coordonnées après coup — utilise « Appliquer aux vidéos ».
       </p>
       <p className="muted small">
         Un piège déplacé de plusieurs centaines de mètres est un nouveau piège, pas le même avec de

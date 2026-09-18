@@ -11,7 +11,7 @@ use crate::db::{Db, DbError};
 use crate::deletions::{self, DeletePreview, DeleteReport, Trash};
 use crate::export::{self, CopyReport, ExportReport};
 use crate::grid::{self, GridFilter, GridPage};
-use crate::positions::{self, PositionGroup};
+use crate::positions;
 use crate::stats::{self, Stats};
 use crate::videos::{self, VideoFilter, VideoPage};
 use crate::scan::{self, ScanReport};
@@ -418,19 +418,6 @@ pub fn delete_videos_without_trace(
 // --- Positions (migration 005) --------------------------------------------
 
 #[tauri::command]
-pub fn position_groups(
-    db: tauri::State<'_, Db>,
-    trap_id: Option<String>,
-    since: Option<String>,
-) -> Result<Vec<PositionGroup>, DbError> {
-    positions::groups(
-        &db.conn.lock().unwrap(),
-        trap_id.as_deref(),
-        since.as_deref(),
-    )
-}
-
-#[tauri::command]
 pub fn set_video_positions(
     db: tauri::State<'_, Db>,
     video_ids: Vec<String>,
@@ -462,4 +449,23 @@ pub fn pending_videos(db: tauri::State<'_, Db>) -> Result<usize, DbError> {
 #[tauri::command]
 pub fn list_videos(db: tauri::State<'_, Db>, filter: VideoFilter) -> Result<VideoPage, DbError> {
     videos::page(&db.conn.lock().unwrap(), filter)
+}
+
+/// Combien de vidéos prendraient la position actuelle du piège.
+#[tauri::command]
+pub fn trap_position_candidates(
+    db: tauri::State<'_, Db>,
+    trap_id: String,
+    include_manual: bool,
+) -> Result<i64, DbError> {
+    positions::trap_position_candidates(&db.conn.lock().unwrap(), &trap_id, include_manual)
+}
+
+#[tauri::command]
+pub fn apply_trap_position(
+    db: tauri::State<'_, Db>,
+    trap_id: String,
+    include_manual: bool,
+) -> Result<usize, DbError> {
+    positions::apply_trap_position(&db.conn.lock().unwrap(), &trap_id, include_manual)
 }
