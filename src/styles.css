@@ -638,3 +638,104 @@ button.small {
   font-size: 0.92em;
   cursor: pointer;
 }
+
+/* --- Dépouillement plein écran ------------------------------------------- */
+
+.review {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+}
+
+.review__bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+
+/* La scène prend la place restante : c'est l'image qu'on regarde, pas l'interface. */
+.review__stage {
+  position: relative;
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 0;
+  padding: 12px;
+  background: #000;
+}
+
+.review__stage video {
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.review__none {
+  text-align: center;
+  color: var(--muted);
+}
+
+.review__flash {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 14px;
+  color: #fff;
+  background: rgb(0 0 0 / 75%);
+  border-radius: 16px;
+}
+
+.review__panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 16px;
+  background: var(--panel);
+  border-top: 1px solid var(--border);
+}
+
+.review__row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.review__species button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.review__species em {
+  color: var(--muted);
+  font-size: 0.85em;
+}
+
+.review__done {
+  margin: auto;
+  text-align: center;
+}
+
+.review__help {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgb(0 0 0 / 55%);
+}
+
+.review__help .panel {
+  max-width: 560px;
+  max-height: 80vh;
+  overflow: auto;
+}

@@ -49,6 +49,22 @@ fn db_status(db: tauri::State<'_, Db>) -> Result<DbStatus, DbError> {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
+        // Sans logger, tous les log::warn! de l'application partent au néant — et une
+        // application installée n'a pas de sortie standard où les lire. On écrit donc
+        // dans un fichier, à côté de la base.
+        .plugin(
+            tauri_plugin_log::Builder::new()
+                .level(log::LevelFilter::Info)
+                .target(tauri_plugin_log::Target::new(
+                    tauri_plugin_log::TargetKind::LogDir {
+                        file_name: Some("spoor-video".into()),
+                    },
+                ))
+                .target(tauri_plugin_log::Target::new(
+                    tauri_plugin_log::TargetKind::Stderr,
+                ))
+                .build(),
+        )
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
@@ -63,6 +79,19 @@ pub fn run() {
             // l'application, puis aux emplacements usuels (une app lancée depuis le
             // Finder n'hérite pas du PATH du shell).
             media::init(app.path().resource_dir().ok().as_deref());
+
+            // Lire une vidéo dans la fenêtre suppose d'ouvrir son dossier au protocole
+            // `asset`. On n'ouvre que **la racine configurée**, et seulement si elle
+            // existe : la webview n'a aucune raison de lire ailleurs sur le disque.
+            {
+                let db = app.state::<Db>();
+                let conn = db.conn.lock().unwrap();
+                if let Ok(Some(root)) = settings::get(&conn, settings::ROOT_PATH) {
+                    if let Err(e) = app.asset_protocol_scope().allow_directory(&root, true) {
+                        log::warn!("racine non autorisée à la lecture : {e}");
+                    }
+                }
+            }
 
             Ok(())
         })

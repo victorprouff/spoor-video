@@ -62,13 +62,23 @@ pub fn app_state(db: tauri::State<'_, Db>) -> Result<AppState, DbError> {
 }
 
 #[tauri::command]
-pub fn set_root_path(db: tauri::State<'_, Db>, path: String) -> Result<(), DbError> {
+pub fn set_root_path(
+    app: tauri::AppHandle,
+    db: tauri::State<'_, Db>,
+    path: String,
+) -> Result<(), DbError> {
     let candidate = PathBuf::from(&path);
     if !candidate.is_dir() {
         return Err(DbError::Other(format!("dossier introuvable : {path}")));
     }
-    let conn = db.conn.lock().unwrap();
-    settings::set(&conn, settings::ROOT_PATH, &path)?;
+    {
+        let conn = db.conn.lock().unwrap();
+        settings::set(&conn, settings::ROOT_PATH, &path)?;
+    }
+    // La nouvelle racine devient lisible immédiatement, sans redémarrer.
+    app.asset_protocol_scope()
+        .allow_directory(&path, true)
+        .map_err(|e| DbError::Other(format!("racine non autorisée à la lecture : {e}")))?;
     Ok(())
 }
 

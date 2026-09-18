@@ -21,6 +21,7 @@ import type {
   Trap,
 } from '../api';
 import { formatDateTime } from '../format';
+import { Review } from './Review';
 
 const DEFAULT_FILTER: GridFilter = {
   trap_id: null,
@@ -49,6 +50,7 @@ export function Grid({ onError }: { onError: (e: string | null) => void }) {
   const [tags, setTags] = useState<Tag[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const lastClicked = useRef<string | null>(null);
+  const [reviewAt, setReviewAt] = useState<number | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -96,6 +98,9 @@ export function Grid({ onError }: { onError: (e: string | null) => void }) {
   const clear = useCallback(() => setSelected(new Set()), []);
 
   useEffect(() => {
+    // Le plein écran a son propre clavier : deux gestionnaires actifs ensemble
+    // feraient qu'Échap vide la sélection en même temps qu'il ferme la vue.
+    if (reviewAt !== null) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') clear();
       if ((e.metaKey || e.ctrlKey) && e.key === 'a') {
@@ -105,7 +110,7 @@ export function Grid({ onError }: { onError: (e: string | null) => void }) {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [tiles, clear]);
+  }, [tiles, clear, reviewAt]);
 
   const apply = async (annotation: Annotation) => {
     onError(null);
@@ -178,6 +183,9 @@ export function Grid({ onError }: { onError: (e: string | null) => void }) {
       ) : (
         <section className="panel stack">
           <div className="row row--flush">
+            <button className="primary" onClick={() => setReviewAt(0)}>
+              Dépouiller en plein écran
+            </button>
             <button onClick={selectAll}>Tout sélectionner</button>
             <button onClick={clear} disabled={selected.size === 0}>
               Désélectionner
@@ -191,6 +199,7 @@ export function Grid({ onError }: { onError: (e: string | null) => void }) {
                 tile={tile}
                 selected={selected.has(tile.id)}
                 onClick={(e) => click(tile, e)}
+                onOpen={() => setReviewAt(tiles.findIndex((t) => t.id === tile.id))}
               />
             ))}
           </div>
@@ -199,6 +208,20 @@ export function Grid({ onError }: { onError: (e: string | null) => void }) {
 
       {selected.size > 0 && (
         <AnnotationBar count={selected.size} species={species} onApply={apply} onCancel={clear} />
+      )}
+
+      {reviewAt !== null && (
+        <Review
+          queue={tiles}
+          startAt={reviewAt}
+          species={species}
+          onClose={() => {
+            setReviewAt(null);
+            void refresh();
+          }}
+          onChanged={() => undefined}
+          onError={onError}
+        />
       )}
     </div>
   );
@@ -210,10 +233,12 @@ function Tile({
   tile,
   selected,
   onClick,
+  onOpen,
 }: {
   tile: GridTile;
   selected: boolean;
   onClick: (e: React.MouseEvent) => void;
+  onOpen: () => void;
 }) {
   const [frame, setFrame] = useState(0);
   const timer = useRef<number | null>(null);
@@ -240,6 +265,8 @@ function Tile({
       type="button"
       className={selected ? 'tile tile--on' : 'tile'}
       onClick={onClick}
+      onDoubleClick={onOpen}
+      title="Double-clic : dépouiller en plein écran"
       onMouseEnter={start}
       onMouseLeave={stop}
     >

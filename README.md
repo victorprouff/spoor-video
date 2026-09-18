@@ -32,6 +32,7 @@ Prérequis : Node, Rust, les outils en ligne de commande Xcode, et **ffmpeg**
 
 - **Base** : `~/Library/Application Support/fr.victorprouff.spoorvideo/spoor-video.sqlite`
   — jamais à côté des vidéos, pour rester lisible disque débranché.
+- **Journal** : `~/Library/Logs/fr.victorprouff.spoorvideo/spoor-video.log`.
 - **Vidéos** : dans le dossier racine que tu configures, **indexées en place**.
   L'application ne les copie ni ne les déplace, et ne les supprime que sur demande
   explicite, vers la corbeille du système (voir `spec.md` §6).
@@ -53,7 +54,7 @@ appliqués au démarrage, chacun dans sa transaction.
 - [x] 4. Séquences : regroupement, scission, fusion
 - [x] 5. Vue grille et annotation en masse
 - [ ] 5b. Suppressions (corbeille, trace conservée, `missing`)
-- [ ] 6. Mode plein écran au clavier
+- [x] 6. Mode plein écran au clavier
 - [ ] 7. Recherche et filtres
 - [ ] 8. Statistiques
 - [ ] 9. Exports
