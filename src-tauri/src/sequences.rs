@@ -12,6 +12,7 @@ use rusqlite::{params, Connection};
 
 use crate::db::DbError;
 use crate::settings;
+use crate::sun;
 use crate::traps::EFFECTIVE_RECORDED_AT;
 
 #[derive(Debug, Default, serde::Serialize)]
@@ -24,6 +25,8 @@ pub struct RegroupReport {
     /// Vidéos sans date exploitable : sans place dans une chronologie, elles restent
     /// hors séquence plutôt que d'être rangées à un endroit inventé.
     pub videos_undated: usize,
+    /// Séquences dont la position par rapport au soleil a pu être calculée.
+    pub sun_computed: usize,
 }
 
 #[derive(Debug, serde::Serialize)]
@@ -41,6 +44,38 @@ pub struct Sequence {
     pub state: Option<String>,
     pub notes: Option<String>,
     pub reviewed_at: Option<String>,
+}
+
+/// Recalcule la position solaire de chaque séquence depuis les coordonnées de son piège.
+/// Une séquence dont le piège n'a pas de position reste à NULL : on ne devine pas.
+pub fn refresh_sun(conn: &Connection) -> Result<usize, DbError> {
+    let rows: Vec<(String, String, f64, f64, i64)> = {
+        let mut stmt = conn.prepare(
+            "SELECT s.id, s.started_at, t.latitude, t.longitude, t.utc_offset_minutes
+             FROM sequences s JOIN traps t ON t.id = s.trap_id
+             WHERE s.deleted_at IS NULL
+               AND t.latitude IS NOT NULL AND t.longitude IS NOT NULL",
+        )?;
+        let rows = stmt.query_map([], |r| {
+            Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?))
+        })?;
+        rows.collect::<Result<Vec<_>, _>>()?
+    };
+
+    let mut done = 0;
+    for (id, started_at, lat, lng, utc_offset_minutes) in rows {
+        let Some(at) = parse(&started_at) else { continue };
+        let naive = at.naive_utc();
+        let offset_hours = utc_offset_minutes as f64 / 60.0;
+        let phase = sun::phase(naive, lat, lng, offset_hours);
+        let delta = sun::minutes_from_sunset(naive, lat, lng, offset_hours);
+        conn.execute(
+            "UPDATE sequences SET sun_phase = ?2, minutes_from_sunset = ?3 WHERE id = ?1",
+            params![id, phase.as_str(), delta.map(|d| d.round() as i64)],
+        )?;
+        done += 1;
+    }
+    Ok(done)
 }
 
 /// Une séquence est **gelée** — jamais reconstruite automatiquement — dès qu'elle porte
@@ -142,6 +177,11 @@ pub fn regroup(conn: &Connection) -> Result<RegroupReport, DbError> {
     for id in &frozen {
         refresh_bounds(conn, id)?;
     }
+
+    // La position solaire dépend des coordonnées du piège, qui peuvent être saisies
+    // après coup : on la recalcule pour TOUTES les séquences, gelées comprises.
+    // C'est une donnée dérivée, pas une décision humaine — la réécrire ne détruit rien.
+    report.sun_computed = refresh_sun(conn)?;
 
     Ok(report)
 }
@@ -648,6 +688,55 @@ mod tests {
             )
             .unwrap();
         assert_eq!(count, 2, "aucune identification n'est perdue à la fusion");
+    }
+
+    #[test]
+    fn la_position_solaire_est_calculee_et_recalculable() {
+        let conn = db();
+        // Une séquence à 2 h du matin et une à 13 h, en juin, en Bourgogne.
+        conn.execute(
+            "INSERT INTO sequences (id, trap_id, started_at, ended_at, video_count,
+                 auto_grouped, created_at, updated_at)
+             VALUES ('nuit', 't1', '2026-06-21T02:00:00Z', '2026-06-21T02:00:00Z', 1, 1,
+                     datetime('now'), datetime('now')),
+                    ('jour', 't1', '2026-06-21T13:00:00Z', '2026-06-21T13:00:00Z', 1, 1,
+                     datetime('now'), datetime('now'))",
+            [],
+        )
+        .unwrap();
+
+        // Sans coordonnées, rien n'est calculé : on ne devine pas une position.
+        assert_eq!(refresh_sun(&conn).unwrap(), 0);
+        let phase: Option<String> = conn
+            .query_row("SELECT sun_phase FROM sequences WHERE id = 'nuit'", [], |r| {
+                r.get(0)
+            })
+            .unwrap();
+        assert!(phase.is_none());
+
+        // Les coordonnées saisies après coup suffisent : tout se recalcule.
+        conn.execute(
+            "UPDATE traps SET latitude = 47.32, longitude = 5.04, utc_offset_minutes = 120
+             WHERE id = 't1'",
+            [],
+        )
+        .unwrap();
+        assert_eq!(refresh_sun(&conn).unwrap(), 2);
+
+        let read = |id: &str| -> (String, i64) {
+            conn.query_row(
+                "SELECT sun_phase, minutes_from_sunset FROM sequences WHERE id = ?1",
+                [id],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap()
+        };
+        assert_eq!(read("nuit").0, "night");
+        assert_eq!(read("jour").0, "day");
+        assert!(
+            read("nuit").1 > 0,
+            "2 h du matin est après le coucher, pas avant"
+        );
     }
 
     #[test]

@@ -739,3 +739,59 @@ button.small {
   max-height: 80vh;
   overflow: auto;
 }
+
+/* --- Panneau de filtres -------------------------------------------------- */
+
+.filters__panel {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 14px;
+}
+
+.filters__panel fieldset {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.filters__panel legend {
+  padding: 0 6px;
+  color: var(--muted);
+  font-size: 0.85em;
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-bottom: 8px;
+}
+
+.chips .chip {
+  cursor: pointer;
+  user-select: none;
+}
+
+.chip--on {
+  color: var(--accent-ink);
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+/* La case à cocher elle-même est redondante avec l'état de la pastille. */
+.chips .chip input {
+  display: none;
+}
+
+label.inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--muted);
+  font-size: 0.9em;
+}
+
+input.tiny {
+  width: 4.5em;
+}

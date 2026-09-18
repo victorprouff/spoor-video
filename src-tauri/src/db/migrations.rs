@@ -23,6 +23,11 @@ const MIGRATIONS: &[(i64, &str, &str)] = &[
         "trap_clock_offset",
         include_str!("../../migrations/003_trap_clock_offset.sql"),
     ),
+    (
+        4,
+        "sun_phase",
+        include_str!("../../migrations/004_sun_phase.sql"),
+    ),
 ];
 
 pub fn apply(conn: &Connection) -> Result<(), DbError> {

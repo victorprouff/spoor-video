@@ -20,27 +20,13 @@ import type {
   Tag,
   Trap,
 } from '../api';
-import { formatDateTime } from '../format';
+import { SUN_PHASES } from '../api';
+import { EMPTY_FILTER, Filters } from '../components/Filters';
+import { formatDateTime, formatDuration } from '../format';
 import { Review } from './Review';
 
-const DEFAULT_FILTER: GridFilter = {
-  trap_id: null,
-  review: 'unreviewed',
-  states: [],
-  species: [],
-  tags: [],
-  limit: 200,
-  offset: 0,
-};
-
-function duration(seconds: number): string {
-  if (seconds <= 0) return 'instantané';
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  if (h > 0) return `${h} h ${String(m).padStart(2, '0')}`;
-  if (m > 0) return `${m} min`;
-  return `${seconds} s`;
-}
+// Par défaut on montre ce qui reste à faire : c'est la raison d'ouvrir cet onglet.
+const DEFAULT_FILTER: GridFilter = { ...EMPTY_FILTER, review: 'unreviewed' };
 
 export function Grid({ onError }: { onError: (e: string | null) => void }) {
   const [filter, setFilter] = useState<GridFilter>(DEFAULT_FILTER);
@@ -124,55 +110,36 @@ export function Grid({ onError }: { onError: (e: string | null) => void }) {
     }
   };
 
-  const set = <K extends keyof GridFilter>(key: K, value: GridFilter[K]) =>
-    setFilter({ ...filter, [key]: value, offset: 0 });
-
   return (
     <div className="stack grid-view">
-      <section className="panel stack">
-        <div className="row row--flush filters">
-          <select value={filter.trap_id ?? ''} onChange={(e) => set('trap_id', e.target.value || null)}>
-            <option value="">Tous les pièges</option>
-            {traps.map((t) => (
-              <option key={t.id} value={t.id}>
-                {t.name}
-              </option>
-            ))}
-          </select>
+      <Filters filter={filter} onChange={setFilter} traps={traps} species={species} tags={tags} />
 
-          <select
-            value={filter.review}
-            onChange={(e) => set('review', e.target.value as GridFilter['review'])}
-          >
-            <option value="unreviewed">À dépouiller</option>
-            <option value="reviewed">Dépouillées</option>
-            <option value="all">Toutes</option>
-          </select>
-
-          <MultiSelect
-            label="Espèces"
-            options={species.map((s) => ({ value: s.id, label: s.common_name }))}
-            selected={filter.species}
-            onChange={(v) => set('species', v)}
-            hint="Plusieurs espèces : l’une OU l’autre"
-          />
-
-          <MultiSelect
-            label="Tags"
-            options={tags.map((t) => ({ value: t.name, label: `${t.name} (${t.usage_count})` }))}
-            selected={filter.tags}
-            onChange={(v) => set('tags', v)}
-            hint="Chaque tag ajouté affine (ET)"
-          />
-
-          <span className="app__spacer" />
-          <span className="muted small">
-            {page ? `${page.total} séquence(s)` : '…'}
-            {page && page.unreviewed_total > 0 && ` · ${page.unreviewed_total} à dépouiller`}
-          </span>
-          <button onClick={() => setFilter(DEFAULT_FILTER)}>Réinitialiser</button>
-        </div>
-      </section>
+      <div className="row row--flush">
+        <span className="muted small">
+          {page ? `${page.total} séquence(s)` : '…'}
+          {page && page.unreviewed_total > 0 && ` · ${page.unreviewed_total} à dépouiller au total`}
+        </span>
+        <span className="app__spacer" />
+        {page && page.total > filter.limit && (
+          <>
+            <button
+              onClick={() => setFilter({ ...filter, offset: Math.max(0, filter.offset - filter.limit) })}
+              disabled={filter.offset === 0}
+            >
+              Précédentes
+            </button>
+            <span className="muted small">
+              {filter.offset + 1}–{Math.min(filter.offset + filter.limit, page.total)}
+            </span>
+            <button
+              onClick={() => setFilter({ ...filter, offset: filter.offset + filter.limit })}
+              disabled={filter.offset + filter.limit >= page.total}
+            >
+              Suivantes
+            </button>
+          </>
+        )}
+      </div>
 
       {tiles.length === 0 ? (
         <section className="panel">
@@ -259,6 +226,7 @@ function Tile({
 
   const thumb = tile.thumbnails[frame];
   const stateLabel = STATES.find((s) => s.value === tile.state)?.label;
+  const sunLabel = SUN_PHASES.find((p) => p.value === tile.sun_phase)?.label;
 
   return (
     <button
@@ -279,7 +247,7 @@ function Tile({
         {tile.video_count > 1 && <span className="tile__count">{tile.video_count}</span>}
         {tile.duration_s >= 3600 && (
           <span className="tile__long" title="Activité continue">
-            {duration(tile.duration_s)}
+            {formatDuration(tile.duration_s)}
           </span>
         )}
         {tile.unplayable_count > 0 && (
@@ -290,7 +258,10 @@ function Tile({
       </div>
       <div className="tile__meta">
         <span className="small">{formatDateTime(tile.started_at)}</span>
-        <span className="muted small">{tile.trap_name}</span>
+        <span className="muted small">
+          {tile.trap_name}
+          {sunLabel && ` · ${sunLabel.toLowerCase()}`}
+        </span>
         {tile.species.length > 0 && (
           <span className="tile__species">
             {tile.species.map((s) => (
@@ -388,52 +359,5 @@ function AnnotationBar({
       <button onClick={() => onApply({ reviewed: false })}>À revoir</button>
       <button onClick={onCancel}>Annuler</button>
     </div>
-  );
-}
-
-function MultiSelect({
-  label,
-  options,
-  selected,
-  onChange,
-  hint,
-}: {
-  label: string;
-  options: { value: string; label: string }[];
-  selected: string[];
-  onChange: (v: string[]) => void;
-  hint: string;
-}) {
-  const [open, setOpen] = useState(false);
-  if (options.length === 0) return null;
-
-  return (
-    <span className="multi">
-      <button onClick={() => setOpen(!open)} className={selected.length ? 'tab--on' : undefined}>
-        {label}
-        {selected.length > 0 && ` (${selected.length})`}
-      </button>
-      {open && (
-        <div className="multi__menu">
-          <p className="muted small">{hint}</p>
-          {options.map((o) => (
-            <label key={o.value} className="multi__item">
-              <input
-                type="checkbox"
-                checked={selected.includes(o.value)}
-                onChange={(e) =>
-                  onChange(
-                    e.target.checked
-                      ? [...selected, o.value]
-                      : selected.filter((v) => v !== o.value),
-                  )
-                }
-              />
-              {o.label}
-            </label>
-          ))}
-        </div>
-      )}
-    </span>
   );
 }

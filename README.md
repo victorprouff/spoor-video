@@ -55,6 +55,6 @@ appliqués au démarrage, chacun dans sa transaction.
 - [x] 5. Vue grille et annotation en masse
 - [ ] 5b. Suppressions (corbeille, trace conservée, `missing`)
 - [x] 6. Mode plein écran au clavier
-- [ ] 7. Recherche et filtres
+- [x] 7. Recherche et filtres
 - [ ] 8. Statistiques
 - [ ] 9. Exports

@@ -11,6 +11,7 @@ export type Trap = {
   longitude: number | null;
   altitude_m: number | null;
   clock_offset_minutes: number;
+  utc_offset_minutes: number;
   notes: string | null;
   active: boolean;
   video_count: number;
@@ -26,6 +27,7 @@ export type TrapInput = {
   longitude: number | null;
   altitude_m: number | null;
   clock_offset_minutes: number;
+  utc_offset_minutes: number;
   notes: string | null;
   active: boolean;
 };
@@ -97,6 +99,7 @@ export type RegroupReport = {
   sequences_frozen: number;
   videos_grouped: number;
   videos_undated: number;
+  sun_computed: number;
 };
 
 export type ScanReport = {
@@ -159,6 +162,8 @@ export type GridTile = {
   species: TileSpecies[];
   tags: string[];
   unplayable_count: number;
+  sun_phase: string | null;
+  minutes_from_sunset: number | null;
 };
 
 export type GridPage = {
@@ -173,9 +178,27 @@ export type GridFilter = {
   states: string[];
   species: string[];
   tags: string[];
+  confidence_min: Confidence | null;
+  from: string | null;
+  to: string | null;
+  /** Mois retenus, toutes années confondues. */
+  months: number[];
+  hour_from: number | null;
+  hour_to: number | null;
+  sun_phases: string[];
+  duration_min_s: number | null;
+  duration_max_s: number | null;
+  query: string | null;
   limit: number;
   offset: number;
 };
+
+export const SUN_PHASES: { value: string; label: string }[] = [
+  { value: 'day', label: 'Jour' },
+  { value: 'dawn', label: 'Aube' },
+  { value: 'dusk', label: 'Crépuscule' },
+  { value: 'night', label: 'Nuit' },
+];
 
 export type Confidence = 'certain' | 'probable' | 'possible';
 

@@ -19,8 +19,39 @@ pub struct GridFilter {
     /// Tags retenus, en **ET** : chaque tag ajouté affine.
     #[serde(default)]
     pub tags: Vec<String>,
+    /// Confiance minimale retenue : `certain` ne garde que le certain, `possible`
+    /// garde tout. Une séquence passe si **au moins une** de ses espèces l'atteint.
+    pub confidence_min: Option<String>,
+    /// Bornes de date, en `YYYY-MM-DD` (incluses).
+    pub from: Option<String>,
+    pub to: Option<String>,
+    /// Mois retenus, **toutes années confondues** — le cœur de l'analyse long terme :
+    /// comparer les mois de décembre entre eux, et non un hiver donné.
+    #[serde(default)]
+    pub months: Vec<i64>,
+    /// Plage horaire, en heures (0–23). `from > to` traverse minuit : 22→4 est la nuit.
+    pub hour_from: Option<i64>,
+    pub hour_to: Option<i64>,
+    /// Position par rapport au soleil, en **OU** : day / dawn / dusk / night.
+    #[serde(default)]
+    pub sun_phases: Vec<String>,
+    /// Durée du passage, en secondes.
+    pub duration_min_s: Option<i64>,
+    pub duration_max_s: Option<i64>,
+    /// Texte libre : notes de la séquence, et nom de fichier de ses vidéos.
+    pub query: Option<String>,
     pub limit: Option<i64>,
     pub offset: Option<i64>,
+}
+
+/// Les confiances, de la plus forte à la plus faible. Demander « probable » retient
+/// donc aussi le certain — un seuil, pas une égalité.
+fn confidence_at_least(level: &str) -> Vec<&'static str> {
+    match level {
+        "certain" => vec!["certain"],
+        "probable" => vec!["certain", "probable"],
+        _ => vec!["certain", "probable", "possible"],
+    }
 }
 
 #[derive(Debug, serde::Serialize)]
@@ -43,6 +74,9 @@ pub struct GridTile {
     pub tags: Vec<String>,
     /// Vidéos dont le fichier n'est plus lisible (`purged` ou `missing`).
     pub unplayable_count: i64,
+    /// day / dawn / dusk / night, ou `None` si le piège n'a pas de position.
+    pub sun_phase: Option<String>,
+    pub minutes_from_sunset: Option<i64>,
 }
 
 #[derive(Debug, serde::Serialize)]
@@ -98,6 +132,89 @@ fn where_clause(filter: &GridFilter) -> (String, Vec<Box<dyn ToSql>>) {
         }
     }
 
+    if let Some(level) = &filter.confidence_min {
+        let levels = confidence_at_least(level);
+        let holes = vec!["?"; levels.len()].join(",");
+        clauses.push(format!(
+            "EXISTS (SELECT 1 FROM sequence_species ss
+                     WHERE ss.sequence_id = s.id AND ss.confidence IN ({holes}))"
+        ));
+        for l in levels {
+            params.push(Box::new(l.to_string()));
+        }
+    }
+
+    if let Some(from) = &filter.from {
+        clauses.push("date(s.started_at) >= date(?)".into());
+        params.push(Box::new(from.clone()));
+    }
+    if let Some(to) = &filter.to {
+        clauses.push("date(s.started_at) <= date(?)".into());
+        params.push(Box::new(to.clone()));
+    }
+
+    if !filter.months.is_empty() {
+        let holes = vec!["?"; filter.months.len()].join(",");
+        clauses.push(format!(
+            "CAST(strftime('%m', s.started_at) AS INTEGER) IN ({holes})"
+        ));
+        for m in &filter.months {
+            params.push(Box::new(*m));
+        }
+    }
+
+    // Plage horaire. Une plage qui traverse minuit (22 → 4) est un OU, pas un ET :
+    // sans ce cas, filtrer « la nuit » ne rendrait jamais rien.
+    match (filter.hour_from, filter.hour_to) {
+        (Some(a), Some(b)) if a <= b => {
+            clauses.push("CAST(strftime('%H', s.started_at) AS INTEGER) BETWEEN ? AND ?".into());
+            params.push(Box::new(a));
+            params.push(Box::new(b));
+        }
+        (Some(a), Some(b)) => {
+            clauses.push(
+                "(CAST(strftime('%H', s.started_at) AS INTEGER) >= ?
+                  OR CAST(strftime('%H', s.started_at) AS INTEGER) <= ?)"
+                    .into(),
+            );
+            params.push(Box::new(a));
+            params.push(Box::new(b));
+        }
+        _ => {}
+    }
+
+    if !filter.sun_phases.is_empty() {
+        let holes = vec!["?"; filter.sun_phases.len()].join(",");
+        clauses.push(format!("s.sun_phase IN ({holes})"));
+        for p in &filter.sun_phases {
+            params.push(Box::new(p.clone()));
+        }
+    }
+
+    // Durée du passage : c'est elle qui distingue un animal qui traverse d'un animal
+    // qui stationne. SQLite compte en secondes via le julien.
+    let duration_sql = "CAST((julianday(s.ended_at) - julianday(s.started_at)) * 86400 AS INTEGER)";
+    if let Some(min) = filter.duration_min_s {
+        clauses.push(format!("{duration_sql} >= ?"));
+        params.push(Box::new(min));
+    }
+    if let Some(max) = filter.duration_max_s {
+        clauses.push(format!("{duration_sql} <= ?"));
+        params.push(Box::new(max));
+    }
+
+    if let Some(q) = filter.query.as_ref().map(|q| q.trim()).filter(|q| !q.is_empty()) {
+        let like = format!("%{q}%");
+        clauses.push(
+            "(s.notes LIKE ?1 ESCAPE '\\'
+              OR EXISTS (SELECT 1 FROM videos v WHERE v.sequence_id = s.id
+                         AND v.deleted_at IS NULL AND v.file_name LIKE ?1 ESCAPE '\\'))"
+                .replace("?1", "?"),
+        );
+        params.push(Box::new(like.clone()));
+        params.push(Box::new(like));
+    }
+
     // Tags : filtre en ET — chaque tag ajouté affine, il n'élargit pas.
     for tag in &filter.tags {
         clauses.push(
@@ -132,7 +249,8 @@ pub fn page(conn: &Connection, filter: GridFilter) -> Result<GridPage, DbError> 
 
     let sql = format!(
         "SELECT s.id, s.trap_id, t.name, s.started_at, s.ended_at, s.video_count,
-                s.state, s.notes, s.reviewed_at, s.auto_grouped
+                s.state, s.notes, s.reviewed_at, s.auto_grouped,
+                s.sun_phase, s.minutes_from_sunset
          FROM sequences s JOIN traps t ON t.id = s.trap_id
          WHERE {where_sql}
          ORDER BY s.started_at DESC
@@ -159,6 +277,8 @@ pub fn page(conn: &Connection, filter: GridFilter) -> Result<GridPage, DbError> 
             species: Vec::new(),
             tags: Vec::new(),
             unplayable_count: 0,
+            sun_phase: r.get(10)?,
+            minutes_from_sunset: r.get(11)?,
         })
     })?;
     let mut tiles: Vec<GridTile> = rows.collect::<Result<_, _>>()?;
@@ -235,12 +355,12 @@ fn tags_of(conn: &Connection, sequence_id: &str) -> Result<Vec<String>, DbError>
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use crate::annotations::{annotate, Annotation, SpeciesPick};
     use crate::db::migrations;
 
-    fn db() -> Connection {
+    pub fn db() -> Connection {
         let conn = Connection::open_in_memory().unwrap();
         conn.pragma_update(None, "foreign_keys", "ON").unwrap();
         migrations::apply(&conn).unwrap();
@@ -262,6 +382,16 @@ mod tests {
             .unwrap();
         }
         conn
+    }
+
+    /// Repositionne une séquence dans le temps, avec une durée donnée.
+    pub fn move_to(conn: &Connection, id: &str, started: &str, duration_s: i64) {
+        conn.execute(
+            "UPDATE sequences SET started_at = ?2,
+                 ended_at = datetime(?2, '+' || ?3 || ' seconds') WHERE id = ?1",
+            rusqlite::params![id, started, duration_s],
+        )
+        .unwrap();
     }
 
     fn filter() -> GridFilter {
@@ -460,5 +590,265 @@ mod tests {
         assert_eq!(tile.species.len(), 1);
         assert_eq!(tile.species[0].confidence, "probable");
         assert_eq!(tile.tags, vec!["nuit"]);
+    }
+}
+
+#[cfg(test)]
+mod filter_tests {
+    use super::tests::*;
+    use super::*;
+    use crate::annotations::{annotate, Annotation, SpeciesPick};
+
+    fn seq_ids(page: &GridPage) -> Vec<String> {
+        let mut v: Vec<String> = page.tiles.iter().map(|t| t.id.clone()).collect();
+        v.sort();
+        v
+    }
+
+    #[test]
+    fn filtre_par_plage_de_dates() {
+        let conn = db();
+        move_to(&conn, "s1", "2025-06-10T12:00:00", 60);
+        move_to(&conn, "s2", "2026-03-14T21:00:00", 60);
+        move_to(&conn, "s3", "2026-12-02T03:00:00", 60);
+
+        let p = page(
+            &conn,
+            GridFilter {
+                from: Some("2026-01-01".into()),
+                to: Some("2026-06-30".into()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(seq_ids(&p), vec!["s2"]);
+    }
+
+    #[test]
+    fn filtre_par_mois_toutes_annees_confondues() {
+        let conn = db();
+        // Deux décembres d'années différentes, et un juin.
+        move_to(&conn, "s1", "2024-12-20T22:00:00", 60);
+        move_to(&conn, "s2", "2026-12-02T03:00:00", 60);
+        move_to(&conn, "s3", "2025-06-10T12:00:00", 60);
+
+        let p = page(
+            &conn,
+            GridFilter {
+                months: vec![12],
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            seq_ids(&p),
+            vec!["s1", "s2"],
+            "décembre 2024 et décembre 2026 se comparent entre eux"
+        );
+    }
+
+    #[test]
+    fn une_plage_horaire_qui_traverse_minuit_est_un_ou() {
+        let conn = db();
+        move_to(&conn, "s1", "2026-03-14T23:30:00", 60);
+        move_to(&conn, "s2", "2026-03-14T02:30:00", 60);
+        move_to(&conn, "s3", "2026-03-14T13:00:00", 60);
+
+        let nuit = page(
+            &conn,
+            GridFilter {
+                hour_from: Some(22),
+                hour_to: Some(4),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            seq_ids(&nuit),
+            vec!["s1", "s2"],
+            "22 h → 4 h doit retenir 23 h 30 et 2 h 30, pas rien"
+        );
+
+        let jour = page(
+            &conn,
+            GridFilter {
+                hour_from: Some(9),
+                hour_to: Some(17),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(seq_ids(&jour), vec!["s3"]);
+    }
+
+    #[test]
+    fn la_confiance_minimale_est_un_seuil_pas_une_egalite() {
+        let mut conn = db();
+        let mut stmt = conn.prepare("SELECT id FROM species LIMIT 3").unwrap();
+        let sp: Vec<String> = stmt
+            .query_map([], |r| r.get(0))
+            .unwrap()
+            .collect::<Result<_, _>>()
+            .unwrap();
+        drop(stmt);
+
+        for (seq, conf, i) in [("s1", "certain", 0), ("s2", "probable", 1), ("s3", "possible", 2)] {
+            annotate(
+                &mut conn,
+                &[seq.to_string()],
+                Annotation {
+                    add_species: vec![SpeciesPick {
+                        species_id: sp[i].clone(),
+                        confidence: conf.into(),
+                        count_min: None,
+                        count_max: None,
+                    }],
+                    ..Default::default()
+                },
+            )
+            .unwrap();
+        }
+
+        let p = page(
+            &conn,
+            GridFilter {
+                confidence_min: Some("probable".into()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            seq_ids(&p),
+            vec!["s1", "s2"],
+            "« probable » retient aussi le certain"
+        );
+
+        let strict = page(
+            &conn,
+            GridFilter {
+                confidence_min: Some("certain".into()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(seq_ids(&strict), vec!["s1"]);
+    }
+
+    #[test]
+    fn filtre_par_duree_de_passage() {
+        let conn = db();
+        move_to(&conn, "s1", "2026-03-14T21:00:00", 30);
+        move_to(&conn, "s2", "2026-03-14T22:00:00", 7200);
+        move_to(&conn, "s3", "2026-03-14T23:00:00", 300);
+
+        let longues = page(
+            &conn,
+            GridFilter {
+                duration_min_s: Some(3600),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(
+            seq_ids(&longues),
+            vec!["s2"],
+            "seule l'activité continue de deux heures est retenue"
+        );
+    }
+
+    #[test]
+    fn cherche_dans_les_notes_et_les_noms_de_fichier() {
+        let mut conn = db();
+        annotate(
+            &mut conn,
+            &["s1".to_string()],
+            Annotation {
+                notes: Some("laie suitée avec quatre marcassins".into()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO videos (id, file_path, file_name, content_hash, trap_id, sequence_id,
+                 imported_at, created_at, updated_at)
+             VALUES ('v1', '/a', 'IMG_4242.mp4', 'h1', 't1', 's2',
+                     datetime('now'), datetime('now'), datetime('now'))",
+            [],
+        )
+        .unwrap();
+
+        let notes = page(
+            &conn,
+            GridFilter {
+                query: Some("marcassin".into()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(seq_ids(&notes), vec!["s1"]);
+
+        let fichier = page(
+            &conn,
+            GridFilter {
+                query: Some("4242".into()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(seq_ids(&fichier), vec!["s2"]);
+    }
+
+    #[test]
+    fn filtre_par_position_solaire() {
+        let conn = db();
+        conn.execute("UPDATE sequences SET sun_phase = 'night' WHERE id IN ('s1','s2')", [])
+            .unwrap();
+        conn.execute("UPDATE sequences SET sun_phase = 'day' WHERE id = 's3'", [])
+            .unwrap();
+
+        let p = page(
+            &conn,
+            GridFilter {
+                sun_phases: vec!["night".into()],
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(seq_ids(&p), vec!["s1", "s2"]);
+    }
+
+    #[test]
+    fn les_filtres_se_combinent() {
+        let conn = db();
+        move_to(&conn, "s1", "2026-12-20T22:00:00", 60);
+        move_to(&conn, "s2", "2026-12-21T13:00:00", 60);
+        move_to(&conn, "s3", "2026-06-10T22:00:00", 60);
+
+        let p = page(
+            &conn,
+            GridFilter {
+                months: vec![12],
+                hour_from: Some(20),
+                hour_to: Some(23),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(seq_ids(&p), vec!["s1"], "décembre ET le soir");
+    }
+
+    #[test]
+    fn la_pagination_ne_ment_pas_sur_le_total() {
+        let conn = db();
+        let p = page(
+            &conn,
+            GridFilter {
+                limit: Some(2),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        assert_eq!(p.tiles.len(), 2);
+        assert_eq!(p.total, 3, "le total compte tout, pas seulement la page");
     }
 }

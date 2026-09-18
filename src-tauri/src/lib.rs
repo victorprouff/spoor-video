@@ -7,6 +7,7 @@ mod media;
 mod scan;
 mod sequences;
 mod settings;
+mod sun;
 mod species;
 mod traps;
 

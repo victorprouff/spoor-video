@@ -15,6 +15,7 @@ pub struct Trap {
     pub longitude: Option<f64>,
     pub altitude_m: Option<f64>,
     pub clock_offset_minutes: i64,
+    pub utc_offset_minutes: i64,
     pub notes: Option<String>,
     pub active: bool,
     pub video_count: i64,
@@ -32,6 +33,7 @@ pub struct TrapInput {
     pub longitude: Option<f64>,
     pub altitude_m: Option<f64>,
     pub clock_offset_minutes: Option<i64>,
+    pub utc_offset_minutes: Option<i64>,
     pub notes: Option<String>,
     pub active: Option<bool>,
 }
@@ -49,7 +51,8 @@ fn normalise(raw: Option<String>) -> Option<String> {
 pub fn list(conn: &Connection) -> Result<Vec<Trap>, DbError> {
     let sql = format!(
         "SELECT t.id, t.name, t.folder_name, t.camera_name, t.latitude, t.longitude,
-                t.altitude_m, t.clock_offset_minutes, t.notes, t.active,
+                t.altitude_m, t.clock_offset_minutes, t.utc_offset_minutes,
+                t.notes, t.active,
                 (SELECT COUNT(*) FROM videos v
                   WHERE v.trap_id = t.id AND v.deleted_at IS NULL),
                 (SELECT MIN({eff}) FROM videos v
@@ -72,11 +75,12 @@ pub fn list(conn: &Connection) -> Result<Vec<Trap>, DbError> {
             longitude: r.get(5)?,
             altitude_m: r.get(6)?,
             clock_offset_minutes: r.get(7)?,
-            notes: r.get(8)?,
-            active: r.get::<_, i64>(9)? != 0,
-            video_count: r.get(10)?,
-            first_video_at: r.get(11)?,
-            last_video_at: r.get(12)?,
+            utc_offset_minutes: r.get(8)?,
+            notes: r.get(9)?,
+            active: r.get::<_, i64>(10)? != 0,
+            video_count: r.get(11)?,
+            first_video_at: r.get(12)?,
+            last_video_at: r.get(13)?,
         })
     })?;
     Ok(rows.collect::<Result<Vec<_>, _>>()?)
@@ -106,8 +110,9 @@ pub fn create(conn: &Connection, input: TrapInput) -> Result<String, DbError> {
     let now = Utc::now().to_rfc3339();
     conn.execute(
         "INSERT INTO traps (id, name, folder_name, camera_name, latitude, longitude,
-             altitude_m, clock_offset_minutes, notes, active, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?11)",
+             altitude_m, clock_offset_minutes, utc_offset_minutes, notes, active,
+             created_at, updated_at)
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?12)",
         params![
             id,
             input.name.trim(),
@@ -117,6 +122,7 @@ pub fn create(conn: &Connection, input: TrapInput) -> Result<String, DbError> {
             input.longitude,
             input.altitude_m,
             input.clock_offset_minutes.unwrap_or(0),
+            input.utc_offset_minutes.unwrap_or(60),
             normalise(input.notes),
             input.active.unwrap_or(true) as i64,
             now,
@@ -129,8 +135,8 @@ pub fn update(conn: &Connection, id: &str, input: TrapInput) -> Result<(), DbErr
     check(&input)?;
     let changed = conn.execute(
         "UPDATE traps SET name = ?2, folder_name = ?3, camera_name = ?4, latitude = ?5,
-             longitude = ?6, altitude_m = ?7, clock_offset_minutes = ?8, notes = ?9,
-             active = ?10, updated_at = ?11
+             longitude = ?6, altitude_m = ?7, clock_offset_minutes = ?8,
+             utc_offset_minutes = ?9, notes = ?10, active = ?11, updated_at = ?12
          WHERE id = ?1 AND deleted_at IS NULL",
         params![
             id,
@@ -141,6 +147,7 @@ pub fn update(conn: &Connection, id: &str, input: TrapInput) -> Result<(), DbErr
             input.longitude,
             input.altitude_m,
             input.clock_offset_minutes.unwrap_or(0),
+            input.utc_offset_minutes.unwrap_or(60),
             normalise(input.notes),
             input.active.unwrap_or(true) as i64,
             Utc::now().to_rfc3339(),
@@ -194,6 +201,7 @@ mod tests {
             longitude: None,
             altitude_m: None,
             clock_offset_minutes: None,
+            utc_offset_minutes: None,
             notes: None,
             active: None,
         }

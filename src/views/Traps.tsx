@@ -20,6 +20,7 @@ const EMPTY: TrapInput = {
   longitude: null,
   altitude_m: null,
   clock_offset_minutes: 0,
+  utc_offset_minutes: 60,
   notes: null,
   active: true,
 };
@@ -209,6 +210,7 @@ function toInput(t: Trap): TrapInput {
     longitude: t.longitude,
     altitude_m: t.altitude_m,
     clock_offset_minutes: t.clock_offset_minutes,
+    utc_offset_minutes: t.utc_offset_minutes,
     notes: t.notes,
     active: t.active,
   };
@@ -293,6 +295,17 @@ function TrapForm({
             onChange={(e) => set('clock_offset_minutes', num(e.target.value) ?? 0)}
           />
         </label>
+        <label>
+          Fuseau de la caméra (min)
+          <select
+            value={value.utc_offset_minutes}
+            onChange={(e) => set('utc_offset_minutes', Number(e.target.value))}
+          >
+            <option value={60}>UTC+1 — heure d’hiver</option>
+            <option value={120}>UTC+2 — heure d’été</option>
+            <option value={0}>UTC</option>
+          </select>
+        </label>
         <label className="fields__wide">
           Notes
           <textarea
@@ -315,6 +328,12 @@ function TrapForm({
         Le décalage d’horloge corrige une caméra qui n’est pas à l’heure. Il s’applique à
         l’affichage : la date d’origine n’est jamais réécrite, donc une valeur fausse se corrige
         après coup sans réindexer.
+      </p>
+      <p className="muted small">
+        Le fuseau sert au calcul du lever et du coucher du soleil — pas à l’affichage, qui
+        montre toujours l’heure de la caméra. Il n’y a pas de changement d’heure automatique :
+        une caméra qui suit l’heure d’été sera décrite à une heure près la moitié de l’année,
+        ce qui ne se voit que sur les passages survenus juste au crépuscule.
       </p>
       <p className="muted small">
         Un piège déplacé de plusieurs centaines de mètres est un nouveau piège, pas le même avec de
