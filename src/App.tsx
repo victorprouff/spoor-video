@@ -2,11 +2,13 @@ import { useState } from 'react';
 
 import { useTheme } from './theme';
 import { Scan } from './views/Scan';
+import { Sequences } from './views/Sequences';
 import { SpeciesList } from './views/SpeciesList';
 import { Traps } from './views/Traps';
 
 const TABS = [
   { id: 'scan', label: 'Indexation' },
+  { id: 'sequences', label: 'Séquences' },
   { id: 'traps', label: 'Pièges' },
   { id: 'species', label: 'Espèces' },
 ] as const;
@@ -48,6 +50,7 @@ export default function App() {
         )}
 
         {tab === 'scan' && <Scan onError={setError} />}
+        {tab === 'sequences' && <Sequences onError={setError} />}
         {tab === 'traps' && <Traps onError={setError} />}
         {tab === 'species' && <SpeciesList onError={setError} />}
       </main>

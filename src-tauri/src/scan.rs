@@ -13,7 +13,7 @@ use rusqlite::{params, Connection, OptionalExtension};
 use walkdir::WalkDir;
 
 use crate::db::DbError;
-use crate::{hash, media};
+use crate::{hash, media, sequences};
 
 const VIDEO_EXTENSIONS: &[&str] = &["mp4", "avi", "mov", "mkv", "m4v", "mpg", "mpeg"];
 
@@ -41,6 +41,10 @@ pub struct ScanReport {
     pub unknown_folders: Vec<String>,
     pub errors: Vec<String>,
     pub ffmpeg_available: bool,
+    /// Séquences reconstruites à l'issue de la passe (étape 7 du §4).
+    pub sequences_built: usize,
+    /// Séquences laissées intactes parce qu'ajustées ou annotées à la main.
+    pub sequences_frozen: usize,
 }
 
 /// Correspondance dossier de premier niveau → piège, telle qu'elle est en base.
@@ -159,6 +163,12 @@ pub fn scan(conn: &Connection, root: &Path, thumbs_dir: &Path) -> Result<ScanRep
     // Une vidéo déjà `purged` (§6 cas b) n'est pas concernée : son fichier est parti
     // volontairement, ce n'est pas une disparition.
     report.files_missing = mark_missing(conn, root, &mut report)?;
+
+    // Étape 7 : regroupement en séquences. Les séquences ajustées ou annotées à la main
+    // sont gelées, donc relancer une passe ne peut pas effacer du travail.
+    let regroup = sequences::regroup(conn)?;
+    report.sequences_built = regroup.sequences_built;
+    report.sequences_frozen = regroup.sequences_frozen;
 
     conn.execute(
         "UPDATE imports SET finished_at = ?2, files_seen = ?3, files_added = ?4,

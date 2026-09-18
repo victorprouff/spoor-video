@@ -3,6 +3,7 @@ mod db;
 mod hash;
 mod media;
 mod scan;
+mod sequences;
 mod settings;
 mod species;
 mod traps;
@@ -78,6 +79,11 @@ pub fn run() {
             commands::create_species,
             commands::update_species,
             commands::delete_species,
+            commands::list_sequences,
+            commands::regroup_sequences,
+            commands::split_sequence,
+            commands::merge_sequences,
+            commands::list_sequence_videos,
         ])
         .run(tauri::generate_context!())
         .expect("erreur au lancement de l'application");
@@ -91,4 +97,5 @@ pub mod testing {
     pub use crate::db::migrations::apply as apply_migrations;
     pub use crate::media::{available as media_available, init as media_init};
     pub use crate::scan::{scan, ScanReport};
+    pub use crate::sequences::{list as list_sequences, Sequence};
 }

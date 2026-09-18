@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use rusqlite::Connection;
-use spoor_video_lib::testing::{apply_migrations, media_available, media_init, scan};
+use spoor_video_lib::testing::{apply_migrations, list_sequences, media_available, media_init, scan};
 
 /// Fabrique une vidéo de `seconds` secondes, unique par sa couleur.
 fn make_video(dest: &Path, seconds: f64, color: &str) {
@@ -264,4 +264,41 @@ fn une_video_sans_date_est_comptee_jamais_datee_du_jour() {
         date.is_none(),
         "une date absente reste absente, jamais remplacée par aujourd'hui"
     );
+}
+
+
+#[test]
+fn la_passe_regroupe_en_sequences() {
+    ffmpeg_ou_echec();
+    let f = setup();
+    link(&f.conn, "Mare basse");
+
+    // Trois déclenchements rapprochés, puis un passage bien plus tard.
+    for (i, minute) in [0i64, 3, 6, 120].iter().enumerate() {
+        let at = chrono::DateTime::parse_from_rfc3339("2026-03-14T21:00:00Z").unwrap()
+            + chrono::Duration::minutes(*minute);
+        let dest = f.root.join(format!("Mare basse/IMG_{i}.mp4"));
+        std::fs::create_dir_all(dest.parent().unwrap()).unwrap();
+        let status = Command::new("ffmpeg")
+            .args(["-v", "quiet", "-y", "-f", "lavfi", "-i"])
+            .arg(format!("color=c=0x{i}0{i}0{i}0:s=320x240:d=1:r=10"))
+            .args(["-metadata", &format!("creation_time={}", at.to_rfc3339())])
+            .arg(&dest)
+            .status()
+            .unwrap();
+        assert!(status.success());
+    }
+
+    let r = scan(&f.conn, &f.root, &f.thumbs).unwrap();
+    assert_eq!(r.files_added, 4);
+    assert_eq!(r.sequences_built, 2, "trois déclenchements groupés, un isolé");
+
+    let seqs = list_sequences(&f.conn, None).unwrap();
+    let passage = seqs.iter().find(|s| s.video_count == 3).unwrap();
+    assert_eq!(passage.duration_s, 6 * 60, "la durée du passage est conservée");
+
+    // Rejouer la passe ne redécoupe rien.
+    let r = scan(&f.conn, &f.root, &f.thumbs).unwrap();
+    assert_eq!(r.sequences_built, 2);
+    assert_eq!(list_sequences(&f.conn, None).unwrap().len(), 2);
 }

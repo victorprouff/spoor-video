@@ -8,6 +8,7 @@ use tauri::Manager;
 
 use crate::db::{Db, DbError};
 use crate::scan::{self, ScanReport};
+use crate::sequences::{self, RegroupReport, Sequence};
 use crate::species::{self, Species, SpeciesInput};
 use crate::traps::{self, Trap, TrapInput};
 use crate::{media, settings};
@@ -222,4 +223,77 @@ pub fn update_species(
 #[tauri::command]
 pub fn delete_species(db: tauri::State<'_, Db>, id: String) -> Result<(), DbError> {
     species::delete(&db.conn.lock().unwrap(), &id)
+}
+
+// --- Séquences ------------------------------------------------------------
+
+#[tauri::command]
+pub fn list_sequences(
+    db: tauri::State<'_, Db>,
+    trap_id: Option<String>,
+) -> Result<Vec<Sequence>, DbError> {
+    sequences::list(&db.conn.lock().unwrap(), trap_id.as_deref())
+}
+
+#[tauri::command]
+pub fn regroup_sequences(db: tauri::State<'_, Db>) -> Result<RegroupReport, DbError> {
+    sequences::regroup(&db.conn.lock().unwrap())
+}
+
+#[tauri::command]
+pub fn split_sequence(
+    db: tauri::State<'_, Db>,
+    sequence_id: String,
+    at_video_id: String,
+) -> Result<String, DbError> {
+    sequences::split(&db.conn.lock().unwrap(), &sequence_id, &at_video_id)
+}
+
+#[tauri::command]
+pub fn merge_sequences(
+    db: tauri::State<'_, Db>,
+    sequence_ids: Vec<String>,
+) -> Result<String, DbError> {
+    sequences::merge(&db.conn.lock().unwrap(), &sequence_ids)
+}
+
+/// Les vidéos d'une séquence, dans l'ordre du temps.
+#[tauri::command]
+pub fn list_sequence_videos(
+    db: tauri::State<'_, Db>,
+    sequence_id: String,
+) -> Result<Vec<SequenceVideo>, DbError> {
+    let conn = db.conn.lock().unwrap();
+    let sql = format!(
+        "SELECT v.id, v.file_name, v.file_path, v.thumbnail_path, {eff}, v.duration_s,
+                v.file_state
+         FROM videos v JOIN traps t ON t.id = v.trap_id
+         WHERE v.sequence_id = ?1 AND v.deleted_at IS NULL
+         ORDER BY {eff}, v.file_name",
+        eff = crate::traps::EFFECTIVE_RECORDED_AT
+    );
+    let mut stmt = conn.prepare(&sql)?;
+    let rows = stmt.query_map([&sequence_id], |r| {
+        Ok(SequenceVideo {
+            id: r.get(0)?,
+            file_name: r.get(1)?,
+            file_path: r.get(2)?,
+            thumbnail_path: r.get(3)?,
+            recorded_at: r.get(4)?,
+            duration_s: r.get(5)?,
+            file_state: r.get(6)?,
+        })
+    })?;
+    Ok(rows.collect::<Result<Vec<_>, _>>()?)
+}
+
+#[derive(serde::Serialize)]
+pub struct SequenceVideo {
+    pub id: String,
+    pub file_name: String,
+    pub file_path: String,
+    pub thumbnail_path: Option<String>,
+    pub recorded_at: Option<String>,
+    pub duration_s: Option<f64>,
+    pub file_state: String,
 }

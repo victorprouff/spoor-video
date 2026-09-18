@@ -123,6 +123,8 @@ function Report({
     ['Déjà écartées', report.files_repurged],
     ['Sans date', report.files_no_date],
     ['En erreur', report.files_error],
+    ['Séquences reconstruites', report.sequences_built],
+    ['Séquences intactes', report.sequences_frozen],
   ];
 
   return (

@@ -68,6 +68,37 @@ export type AppState = {
   last_scan: string | null;
 };
 
+export type Sequence = {
+  id: string;
+  trap_id: string;
+  trap_name: string;
+  started_at: string;
+  ended_at: string;
+  video_count: number;
+  duration_s: number;
+  auto_grouped: boolean;
+  state: string | null;
+  notes: string | null;
+  reviewed_at: string | null;
+};
+
+export type SequenceVideo = {
+  id: string;
+  file_name: string;
+  file_path: string;
+  thumbnail_path: string | null;
+  recorded_at: string | null;
+  duration_s: number | null;
+  file_state: string;
+};
+
+export type RegroupReport = {
+  sequences_built: number;
+  sequences_frozen: number;
+  videos_grouped: number;
+  videos_undated: number;
+};
+
 export type ScanReport = {
   root_path: string;
   files_seen: number;
@@ -82,6 +113,8 @@ export type ScanReport = {
   unknown_folders: string[];
   errors: string[];
   ffmpeg_available: boolean;
+  sequences_built: number;
+  sequences_frozen: number;
 };
 
 export const appState = () => invoke<AppState>('app_state');
@@ -102,3 +135,13 @@ export const createSpecies = (input: SpeciesInput) => invoke<string>('create_spe
 export const updateSpecies = (id: string, input: SpeciesInput) =>
   invoke<void>('update_species', { id, input });
 export const deleteSpecies = (id: string) => invoke<void>('delete_species', { id });
+
+export const listSequences = (trapId: string | null) =>
+  invoke<Sequence[]>('list_sequences', { trapId });
+export const regroupSequences = () => invoke<RegroupReport>('regroup_sequences');
+export const listSequenceVideos = (sequenceId: string) =>
+  invoke<SequenceVideo[]>('list_sequence_videos', { sequenceId });
+export const splitSequence = (sequenceId: string, atVideoId: string) =>
+  invoke<string>('split_sequence', { sequenceId, atVideoId });
+export const mergeSequences = (sequenceIds: string[]) =>
+  invoke<string>('merge_sequences', { sequenceIds });
