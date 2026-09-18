@@ -21,6 +21,7 @@ import type {
   Trap,
 } from '../api';
 import { SUN_PHASES } from '../api';
+import { DeleteDialog } from '../components/DeleteDialog';
 import { Export } from '../components/Export';
 import { EMPTY_FILTER, Filters } from '../components/Filters';
 import { formatDateTime, formatDuration } from '../format';
@@ -38,6 +39,8 @@ export function Grid({ onError }: { onError: (e: string | null) => void }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const lastClicked = useRef<string | null>(null);
   const [reviewAt, setReviewAt] = useState<number | null>(null);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteNote, setDeleteNote] = useState<string | null>(null);
 
   const refresh = useCallback(async () => {
     try {
@@ -182,7 +185,46 @@ export function Grid({ onError }: { onError: (e: string | null) => void }) {
       />
 
       {selected.size > 0 && (
-        <AnnotationBar count={selected.size} species={species} onApply={apply} onCancel={clear} />
+        <AnnotationBar
+          count={selected.size}
+          species={species}
+          onApply={apply}
+          onCancel={clear}
+          onDelete={() => setDeleting(true)}
+        />
+      )}
+
+      {deleting && (
+        <DeleteDialog
+          sequenceIds={[...selected]}
+          onCancel={() => setDeleting(false)}
+          onError={onError}
+          onDone={(r, mode) => {
+            setDeleting(false);
+            clear();
+            void refresh();
+            const parts = [`${r.trashed} fichier(s) à la corbeille`];
+            if (mode === 'purge') parts.push(`${r.rows_removed} ligne(s) supprimée(s)`);
+            if (r.already_gone) parts.push(`${r.already_gone} déjà absent(s)`);
+            if (r.sequences_removed) parts.push(`${r.sequences_removed} séquence(s) vidée(s)`);
+            setDeleteNote(parts.join(' · '));
+            if (r.errors.length) onError(r.errors.join('\n'));
+          }}
+        />
+      )}
+
+      {deleteNote && (
+        <div className="panel notice">
+          <p>
+            {deleteNote}{' '}
+            <span className="muted small">
+              — récupérable dans la corbeille tant qu’elle n’est pas vidée.
+            </span>{' '}
+            <button className="small" onClick={() => setDeleteNote(null)}>
+              Fermer
+            </button>
+          </p>
+        </div>
       )}
 
       {reviewAt !== null && (
@@ -295,11 +337,13 @@ function AnnotationBar({
   species,
   onApply,
   onCancel,
+  onDelete,
 }: {
   count: number;
   species: Species[];
   onApply: (a: Annotation) => void;
   onCancel: () => void;
+  onDelete: () => void;
 }) {
   const [speciesId, setSpeciesId] = useState('');
   const [confidence, setConfidence] = useState<Confidence>('certain');
@@ -365,6 +409,9 @@ function AnnotationBar({
 
       <span className="app__spacer" />
       <button onClick={() => onApply({ reviewed: false })}>À revoir</button>
+      <button className="destructive" onClick={onDelete}>
+        Supprimer…
+      </button>
       <button onClick={onCancel}>Annuler</button>
     </div>
   );

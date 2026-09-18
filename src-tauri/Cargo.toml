@@ -31,6 +31,9 @@ tauri-plugin-log = "2"
 tauri-plugin-dialog = "2"
 walkdir = "2"
 blake3 = "1"
+# Corbeille du système plutôt qu'effacement : la seule opération irréversible de
+# l'application doit rester récupérable tant que la corbeille n'est pas vidée.
+trash = "5"
 
 
 # Read the optimization guideline for more details: https://tauri.app/concept/size/#cargo-configuration

@@ -1,6 +1,7 @@
 mod annotations;
 mod commands;
 mod db;
+mod deletions;
 mod export;
 mod grid;
 mod hash;
@@ -125,6 +126,10 @@ pub fn run() {
             commands::export_sequences_csv,
             commands::export_detections_csv,
             commands::copy_videos,
+            commands::preview_deletion,
+            commands::delete_videos_keeping_trace,
+            commands::delete_videos_without_trace,
+            commands::videos_of_sequences,
         ])
         .run(tauri::generate_context!())
         .expect("erreur au lancement de l'application");

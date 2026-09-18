@@ -302,6 +302,35 @@ export type CopyReport = {
   bytes: number;
 };
 
+export type DeletePreview = {
+  videos: number;
+  present_files: number;
+  already_gone: number;
+  total_bytes: number;
+  sequences: number;
+  reviewed_sequences: number;
+  species_annotations: number;
+  outside_root: number;
+};
+
+export type DeleteReport = {
+  trashed: number;
+  rows_removed: number;
+  already_gone: number;
+  sequences_removed: number;
+  annotations_lost: number;
+  errors: string[];
+};
+
+export const videosOfSequences = (sequenceIds: string[]) =>
+  invoke<string[]>('videos_of_sequences', { sequenceIds });
+export const previewDeletion = (videoIds: string[]) =>
+  invoke<DeletePreview>('preview_deletion', { videoIds });
+export const deleteVideosKeepingTrace = (videoIds: string[], reason: string | null) =>
+  invoke<DeleteReport>('delete_videos_keeping_trace', { videoIds, reason });
+export const deleteVideosWithoutTrace = (videoIds: string[]) =>
+  invoke<DeleteReport>('delete_videos_without_trace', { videoIds });
+
 export const exportSequencesCsv = (filter: GridFilter, path: string) =>
   invoke<ExportReport>('export_sequences_csv', { filter, path });
 export const exportDetectionsCsv = (filter: GridFilter, path: string) =>

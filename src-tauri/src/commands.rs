@@ -8,6 +8,7 @@ use tauri::Manager;
 
 use crate::annotations::{self, AnnotateReport, Annotation, Tag};
 use crate::db::{Db, DbError};
+use crate::deletions::{self, DeletePreview, DeleteReport, Trash};
 use crate::export::{self, CopyReport, ExportReport};
 use crate::grid::{self, GridFilter, GridPage};
 use crate::stats::{self, Stats};
@@ -374,4 +375,44 @@ pub async fn copy_videos(
     })
     .await
     .map_err(|e| DbError::Other(format!("copie interrompue : {e}")))?
+}
+
+// --- Suppressions (§6) ----------------------------------------------------
+
+#[tauri::command]
+pub fn videos_of_sequences(
+    db: tauri::State<'_, Db>,
+    sequence_ids: Vec<String>,
+) -> Result<Vec<String>, DbError> {
+    deletions::videos_of_sequences(&db.conn.lock().unwrap(), &sequence_ids)
+}
+
+#[tauri::command]
+pub fn preview_deletion(
+    db: tauri::State<'_, Db>,
+    video_ids: Vec<String>,
+) -> Result<DeletePreview, DbError> {
+    deletions::preview(&db.conn.lock().unwrap(), &video_ids)
+}
+
+#[tauri::command]
+pub fn delete_videos_keeping_trace(
+    db: tauri::State<'_, Db>,
+    video_ids: Vec<String>,
+    reason: Option<String>,
+) -> Result<DeleteReport, DbError> {
+    deletions::delete_keeping_trace(
+        &db.conn.lock().unwrap(),
+        &video_ids,
+        reason.as_deref(),
+        &Trash,
+    )
+}
+
+#[tauri::command]
+pub fn delete_videos_without_trace(
+    db: tauri::State<'_, Db>,
+    video_ids: Vec<String>,
+) -> Result<DeleteReport, DbError> {
+    deletions::delete_without_trace(&mut db.conn.lock().unwrap(), &video_ids, &Trash)
 }

@@ -897,3 +897,48 @@ input.tiny {
 .multiples__axis {
   margin-top: 2px;
 }
+
+/* --- Suppression --------------------------------------------------------- */
+
+.dialog--wide {
+  max-width: 620px;
+  max-height: 85vh;
+  overflow: auto;
+}
+
+.dialog fieldset {
+  margin: 12px 0;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.dialog legend {
+  padding: 0 6px;
+  color: var(--muted);
+  font-size: 0.85em;
+}
+
+/* Le choix est un vrai paragraphe : ce qu'on garde mérite d'être lu, pas deviné. */
+.choice {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 6px 0;
+  font-size: 0.92em;
+  cursor: pointer;
+}
+
+.choice input {
+  margin-top: 3px;
+}
+
+.choice em {
+  color: var(--muted);
+}
+
+.dialog label.stack {
+  gap: 4px;
+  margin: 10px 0;
+  font-size: 0.92em;
+}
