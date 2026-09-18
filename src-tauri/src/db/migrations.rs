@@ -33,6 +33,11 @@ const MIGRATIONS: &[(i64, &str, &str)] = &[
         "video_position",
         include_str!("../../migrations/005_video_position.sql"),
     ),
+    (
+        6,
+        "drop_tags",
+        include_str!("../../migrations/006_drop_tags.sql"),
+    ),
 ];
 
 pub fn apply(conn: &Connection) -> Result<(), DbError> {

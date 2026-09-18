@@ -54,7 +54,6 @@ pub struct VideoRow {
     pub reviewed: bool,
     pub species: Vec<String>,
     pub species_colors: Vec<Option<String>>,
-    pub tags: Vec<String>,
     /// Rang de la vidéo dans sa séquence, et taille de celle-ci : « 2 / 5 ».
     pub sequence_size: i64,
 }
@@ -122,15 +121,6 @@ fn where_clause(filter: &VideoFilter) -> (String, Vec<Box<dyn ToSql>>) {
         for l in levels {
             params.push(Box::new(l.to_string()));
         }
-    }
-
-    for tag in &f.tags {
-        clauses.push(
-            "EXISTS (SELECT 1 FROM sequence_tags st JOIN tags t2 ON t2.id = st.tag_id
-                     WHERE st.sequence_id = v.sequence_id AND t2.name = ?)"
-                .into(),
-        );
-        params.push(Box::new(tag.clone()));
     }
 
     // --- Temps : sur la vidéo elle-même -------------------------------------
@@ -294,12 +284,11 @@ pub fn page(conn: &Connection, filter: VideoFilter) -> Result<VideoPage, DbError
             sequence_size: r.get(18)?,
             species: Vec::new(),
             species_colors: Vec::new(),
-            tags: Vec::new(),
         })
     })?;
     let mut rows: Vec<VideoRow> = rows.collect::<Result<_, _>>()?;
 
-    // Espèces et tags, une requête par ligne affichée : sur 200 lignes d'une base
+    // Espèces, une requête par ligne affichée : sur 200 lignes d'une base
     // locale c'est quelques millisecondes, et le code se relit.
     for row in &mut rows {
         let Some(sequence_id) = &row.sequence_id else {
@@ -318,13 +307,6 @@ pub fn page(conn: &Connection, filter: VideoFilter) -> Result<VideoPage, DbError
             row.species.push(name);
             row.species_colors.push(color);
         }
-
-        let mut stmt = conn.prepare(
-            "SELECT tg.name FROM sequence_tags st JOIN tags tg ON tg.id = st.tag_id
-             WHERE st.sequence_id = ?1 ORDER BY tg.name",
-        )?;
-        let tags = stmt.query_map([sequence_id], |r| r.get::<_, String>(0))?;
-        row.tags = tags.collect::<Result<_, _>>()?;
     }
 
     Ok(VideoPage {

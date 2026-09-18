@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { convertFileSrc } from '@tauri-apps/api/core';
 
-import { STATES, SUN_PHASES, listSpecies, listTags, listTraps, listVideos } from '../api';
-import type { Species, Tag, Trap, VideoFilter, VideoPage, VideoRow } from '../api';
+import { STATES, SUN_PHASES, listSpecies, listTraps, listVideos } from '../api';
+import type { Species, Trap, VideoFilter, VideoPage, VideoRow } from '../api';
 import { EMPTY_FILTER, Filters } from '../components/Filters';
 import { VideoPlayer } from '../components/VideoPlayer';
 import { ViewControls, useDisplay, useThumbSize } from '../components/ViewControls';
@@ -34,7 +34,6 @@ export function Videos({ onError }: { onError: (e: string | null) => void }) {
   const [page, setPage] = useState<VideoPage | null>(null);
   const [traps, setTraps] = useState<Trap[]>([]);
   const [species, setSpecies] = useState<Species[]>([]);
-  const [tags, setTags] = useState<Tag[]>([]);
   const [playing, setPlaying] = useState<VideoRow | null>(null);
   // Les fichiers se regardent plutôt en liste : c'est là qu'on cherche une capture
   // précise. La grille sert à balayer d'un coup d'œil.
@@ -56,7 +55,6 @@ export function Videos({ onError }: { onError: (e: string | null) => void }) {
   useEffect(() => {
     listTraps().then(setTraps).catch(() => undefined);
     listSpecies().then(setSpecies).catch(() => undefined);
-    listTags().then(setTags).catch(() => undefined);
   }, []);
 
   const set = <K extends keyof VideoFilter>(key: K, value: VideoFilter[K]) =>
@@ -80,7 +78,6 @@ export function Videos({ onError }: { onError: (e: string | null) => void }) {
         durationHint="La durée du fichier, pas celle du passage"
         traps={traps}
         species={species}
-        tags={tags}
         extra={
           <fieldset>
             <legend>État du fichier</legend>
@@ -298,9 +295,6 @@ export function Videos({ onError }: { onError: (e: string | null) => void }) {
                       </span>
                     ) : (
                       <span className="muted small">à dépouiller</span>
-                    )}
-                    {v.tags.length > 0 && (
-                      <div className="muted small">{v.tags.map((t) => `#${t}`).join(' ')}</div>
                     )}
                   </td>
                   <td className="num muted">

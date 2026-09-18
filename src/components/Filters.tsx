@@ -3,7 +3,7 @@ import { useState } from 'react';
 import { CONFIDENCES, SUN_PHASES } from '../api';
 import { SpeciesPicker } from './SpeciesPicker';
 import type { Confidence as Conf } from '../api';
-import type { Confidence, GridFilter, Species, Tag, Trap } from '../api';
+import type { Confidence, GridFilter, Species, Trap } from '../api';
 import { monthName } from '../format';
 
 export const EMPTY_FILTER: GridFilter = {
@@ -11,7 +11,6 @@ export const EMPTY_FILTER: GridFilter = {
   review: 'all',
   states: [],
   species: [],
-  tags: [],
   confidence_min: null,
   from: null,
   to: null,
@@ -33,7 +32,6 @@ export function activeCount(f: GridFilter): number {
   if (f.review !== 'all') n++;
   n += f.states.length ? 1 : 0;
   n += f.species.length ? 1 : 0;
-  n += f.tags.length ? 1 : 0;
   if (f.confidence_min) n++;
   if (f.from || f.to) n++;
   if (f.months.length) n++;
@@ -64,7 +62,6 @@ export function Filters({
   onChange,
   traps,
   species,
-  tags,
   extra,
   extraCount = 0,
   onClear,
@@ -75,7 +72,6 @@ export function Filters({
   onChange: (f: GridFilter) => void;
   traps: Trap[];
   species: Species[];
-  tags: Tag[];
   /** Critères propres à une vue, ajoutés au panneau déplié. */
   extra?: React.ReactNode;
   /** Combien de ces critères sont posés, pour que le compteur ne mente pas. */
@@ -88,9 +84,9 @@ export function Filters({
   const [open, setOpen] = useState(() => {
     // Ouvert par défaut : cachés derrière un bouton, les filtres passaient inaperçus.
     try {
-      return localStorage.getItem('filters-open') !== '0';
+      return localStorage.getItem('filters-open') === '1';
     } catch {
-      return true;
+      return false;
     }
   });
 
@@ -105,7 +101,7 @@ export function Filters({
   const set = <K extends keyof GridFilter>(key: K, value: GridFilter[K]) =>
     onChange({ ...filter, [key]: value, offset: 0 });
 
-  const toggle = (key: 'months' | 'species' | 'tags' | 'sun_phases' | 'states', value: never) => {
+  const toggle = (key: 'months' | 'species' | 'sun_phases' | 'states', value: never) => {
     const list = filter[key] as unknown[];
     const next = list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
     onChange({ ...filter, [key]: next, offset: 0 });
@@ -140,6 +136,12 @@ export function Filters({
           <option value="unreviewed">À dépouiller</option>
           <option value="reviewed">Dépouillées</option>
         </select>
+
+        <SpeciesPicker
+          species={species}
+          selected={new Map(filter.species.map((id) => [id, 'certain' as Conf]))}
+          onToggle={(id) => toggle('species', id as never)}
+        />
 
         <label className="inline">
           Du
@@ -198,14 +200,7 @@ export function Filters({
       {open && (
         <div className="filters__panel">
           <fieldset>
-            <legend>Espèces — l’une OU l’autre</legend>
-            <SpeciesPicker
-              species={species}
-              selected={
-                new Map(filter.species.map((id) => [id, 'certain' as Conf]))
-              }
-              onToggle={(id) => toggle('species', id as never)}
-            />
+            <legend>Identification</legend>
             <label className="inline">
               Confiance minimale
               <select
@@ -221,27 +216,6 @@ export function Filters({
               </select>
             </label>
           </fieldset>
-
-          {tags.length > 0 && (
-            <fieldset>
-              <legend>Tags — chaque tag ajouté affine (ET)</legend>
-              <div className="chips">
-                {tags.map((t) => (
-                  <label
-                    key={t.id}
-                    className={filter.tags.includes(t.name) ? 'chip chip--on' : 'chip'}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={filter.tags.includes(t.name)}
-                      onChange={() => toggle('tags', t.name as never)}
-                    />
-                    #{t.name} <span className="muted">({t.usage_count})</span>
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-          )}
 
           <fieldset>
             <legend>Saison — mois toutes années confondues</legend>

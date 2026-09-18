@@ -16,9 +16,6 @@ pub struct GridFilter {
     /// Espèces retenues, en **OU** — comme dans Spoor.
     #[serde(default)]
     pub species: Vec<String>,
-    /// Tags retenus, en **ET** : chaque tag ajouté affine.
-    #[serde(default)]
-    pub tags: Vec<String>,
     /// Confiance minimale retenue : `certain` ne garde que le certain, `possible`
     /// garde tout. Une séquence passe si **au moins une** de ses espèces l'atteint.
     pub confidence_min: Option<String>,
@@ -71,7 +68,6 @@ pub struct GridTile {
     /// défiler : une planche de contact sans générer d'image supplémentaire.
     pub thumbnails: Vec<String>,
     pub species: Vec<TileSpecies>,
-    pub tags: Vec<String>,
     /// Vidéos dont le fichier n'est plus lisible (`purged` ou `missing`).
     pub unplayable_count: i64,
     /// day / dawn / dusk / night, ou `None` si le piège n'a pas de position.
@@ -216,16 +212,6 @@ pub fn where_clause(filter: &GridFilter) -> (String, Vec<Box<dyn ToSql>>) {
         params.push(Box::new(like));
     }
 
-    // Tags : filtre en ET — chaque tag ajouté affine, il n'élargit pas.
-    for tag in &filter.tags {
-        clauses.push(
-            "EXISTS (SELECT 1 FROM sequence_tags st JOIN tags t2 ON t2.id = st.tag_id
-                     WHERE st.sequence_id = s.id AND t2.name = ?)"
-                .into(),
-        );
-        params.push(Box::new(tag.clone()));
-    }
-
     (clauses.join(" AND "), params)
 }
 
@@ -276,7 +262,6 @@ pub fn page(conn: &Connection, filter: GridFilter) -> Result<GridPage, DbError> 
             auto_grouped: r.get::<_, i64>(9)? != 0,
             thumbnails: Vec::new(),
             species: Vec::new(),
-            tags: Vec::new(),
             unplayable_count: 0,
             sun_phase: r.get(10)?,
             minutes_from_sunset: r.get(11)?,
@@ -289,7 +274,6 @@ pub fn page(conn: &Connection, filter: GridFilter) -> Result<GridPage, DbError> 
     for tile in &mut tiles {
         tile.thumbnails = thumbnails_of(conn, &tile.id)?;
         tile.species = species_of(conn, &tile.id)?;
-        tile.tags = tags_of(conn, &tile.id)?;
         tile.unplayable_count = conn.query_row(
             "SELECT COUNT(*) FROM videos
              WHERE sequence_id = ?1 AND deleted_at IS NULL AND file_state <> 'present'",
@@ -343,15 +327,6 @@ fn species_of(conn: &Connection, sequence_id: &str) -> Result<Vec<TileSpecies>, 
             confidence: r.get(3)?,
         })
     })?;
-    Ok(rows.collect::<Result<Vec<_>, _>>()?)
-}
-
-fn tags_of(conn: &Connection, sequence_id: &str) -> Result<Vec<String>, DbError> {
-    let mut stmt = conn.prepare(
-        "SELECT t.name FROM sequence_tags st JOIN tags t ON t.id = st.tag_id
-         WHERE st.sequence_id = ?1 ORDER BY t.name",
-    )?;
-    let rows = stmt.query_map([sequence_id], |r| r.get::<_, String>(0))?;
     Ok(rows.collect::<Result<Vec<_>, _>>()?)
 }
 
@@ -517,50 +492,7 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn les_tags_filtrent_en_et() {
-        let mut conn = db();
-        annotate(
-            &mut conn,
-            &["s1".to_string()],
-            Annotation {
-                add_tags: vec!["nuit".into(), "juvénile".into()],
-                ..Default::default()
-            },
-        )
-        .unwrap();
-        annotate(
-            &mut conn,
-            &["s2".to_string()],
-            Annotation {
-                add_tags: vec!["nuit".into()],
-                ..Default::default()
-            },
-        )
-        .unwrap();
-
-        let un = page(
-            &conn,
-            GridFilter {
-                tags: vec!["nuit".into()],
-                ..filter()
-            },
-        )
-        .unwrap();
-        assert_eq!(un.total, 2);
-
-        let deux = page(
-            &conn,
-            GridFilter {
-                tags: vec!["nuit".into(), "juvénile".into()],
-                ..filter()
-            },
-        )
-        .unwrap();
-        assert_eq!(deux.total, 1, "chaque tag ajouté affine, il n'élargit pas");
-    }
-
-    #[test]
-    fn la_tuile_porte_ses_especes_et_ses_tags() {
+    fn la_tuile_porte_ses_especes() {
         let mut conn = db();
         let a = pick(&conn, 0);
         annotate(
@@ -573,7 +505,6 @@ pub(crate) mod tests {
                     count_min: None,
                     count_max: None,
                 }],
-                add_tags: vec!["nuit".into()],
                 ..Default::default()
             },
         )
@@ -590,7 +521,6 @@ pub(crate) mod tests {
         let tile = &page.tiles[0];
         assert_eq!(tile.species.len(), 1);
         assert_eq!(tile.species[0].confidence, "probable");
-        assert_eq!(tile.tags, vec!["nuit"]);
     }
 }
 

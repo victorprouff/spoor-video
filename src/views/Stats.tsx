@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { listSpecies, listTags, listTraps, stats as fetchStats } from '../api';
-import type { GridFilter, Species, Stats as StatsData, Tag, Trap } from '../api';
+import { listSpecies, listTraps, stats as fetchStats } from '../api';
+import type { GridFilter, Species, Stats as StatsData, Trap } from '../api';
 import { BarChart, SmallMultiples } from '../components/Charts';
 import { Export } from '../components/Export';
 import { EMPTY_FILTER, Filters } from '../components/Filters';
@@ -23,7 +23,6 @@ export function Stats({ onError }: { onError: (e: string | null) => void }) {
   const [data, setData] = useState<StatsData | null>(null);
   const [traps, setTraps] = useState<Trap[]>([]);
   const [species, setSpecies] = useState<Species[]>([]);
-  const [tags, setTags] = useState<Tag[]>([]);
   const [axis, setAxis] = useState<'civil' | 'solar'>('solar');
 
   const refresh = useCallback(async () => {
@@ -41,7 +40,6 @@ export function Stats({ onError }: { onError: (e: string | null) => void }) {
   useEffect(() => {
     listTraps().then(setTraps).catch(() => undefined);
     listSpecies().then(setSpecies).catch(() => undefined);
-    listTags().then(setTags).catch(() => undefined);
   }, []);
 
   const speciesSeries = useMemo(() => {
@@ -102,7 +100,7 @@ export function Stats({ onError }: { onError: (e: string | null) => void }) {
 
   return (
     <div className="stack">
-      <Filters filter={filter} onChange={setFilter} traps={traps} species={species} tags={tags} />
+      <Filters filter={filter} onChange={setFilter} traps={traps} species={species} />
 
       {!data ? (
         <section className="panel">

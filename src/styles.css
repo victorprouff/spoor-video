@@ -1180,3 +1180,27 @@ input.tiny {
   gap: 4px;
   font-size: 0.85em;
 }
+
+/* Dans la barre de filtres, le sélecteur d'espèces doit tenir sur une ligne :
+   champ étroit, puces à côté. Sa version large reste celle des barres d'annotation. */
+.filters .picker {
+  flex: 1 1 300px;
+  align-items: center;
+  gap: 6px;
+}
+
+.filters .picker__field {
+  flex: 0 1 170px;
+  min-width: 120px;
+}
+
+.filters .picker__list {
+  /* Ici la barre est en haut de l'écran : la liste s'ouvre vers le bas. */
+  top: calc(100% + 4px);
+  bottom: auto;
+  box-shadow: 0 6px 24px rgb(0 0 0 / 22%);
+}
+
+.filters .picker__chosen .chip {
+  white-space: nowrap;
+}

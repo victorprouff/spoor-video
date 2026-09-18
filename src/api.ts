@@ -160,7 +160,6 @@ export type GridTile = {
   auto_grouped: boolean;
   thumbnails: string[];
   species: TileSpecies[];
-  tags: string[];
   unplayable_count: number;
   sun_phase: string | null;
   minutes_from_sunset: number | null;
@@ -177,7 +176,6 @@ export type GridFilter = {
   review: 'unreviewed' | 'reviewed' | 'all';
   states: string[];
   species: string[];
-  tags: string[];
   confidence_min: Confidence | null;
   from: string | null;
   to: string | null;
@@ -229,8 +227,6 @@ export type Annotation = {
   state?: string | null;
   add_species?: SpeciesPick[];
   remove_species?: string[];
-  add_tags?: string[];
-  remove_tags?: string[];
   notes?: string | null;
   reviewed?: boolean | null;
 };
@@ -239,11 +235,7 @@ export type AnnotateReport = {
   sequences_touched: number;
   species_added: number;
   species_removed: number;
-  tags_added: number;
-  tags_removed: number;
 };
-
-export type Tag = { id: string; name: string; usage_count: number };
 
 export type HourBucket = { hour: number; count: number };
 export type SpeciesHour = {
@@ -381,7 +373,6 @@ export type VideoRow = {
   reviewed: boolean;
   species: string[];
   species_colors: (string | null)[];
-  tags: string[];
   sequence_size: number;
 };
 
@@ -407,7 +398,6 @@ export const listVideos = (filter: VideoFilter) => invoke<VideoPage>('list_video
 export const gridPage = (filter: GridFilter) => invoke<GridPage>('grid_page', { filter });
 export const annotateSequences = (sequenceIds: string[], annotation: Annotation) =>
   invoke<AnnotateReport>('annotate_sequences', { sequenceIds, annotation });
-export const listTags = () => invoke<Tag[]>('list_tags');
 
 export const listSequences = (trapId: string | null) =>
   invoke<Sequence[]>('list_sequences', { trapId });

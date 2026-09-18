@@ -99,8 +99,7 @@ const FROZEN: &str = "(s.auto_grouped = 0
        OR s.state IS NOT NULL
        OR s.notes IS NOT NULL
        OR s.reviewed_at IS NOT NULL
-       OR EXISTS (SELECT 1 FROM sequence_species ss WHERE ss.sequence_id = s.id)
-       OR EXISTS (SELECT 1 FROM sequence_tags st WHERE st.sequence_id = s.id))";
+       OR EXISTS (SELECT 1 FROM sequence_species ss WHERE ss.sequence_id = s.id))";
 
 /// Reconstruit les séquences des vidéos qui n'appartiennent à aucune séquence gelée.
 pub fn regroup(conn: &Connection) -> Result<RegroupReport, DbError> {
@@ -413,11 +412,6 @@ pub fn merge(conn: &Connection, sequence_ids: &[String]) -> Result<String, DbErr
                  count_min, count_max, notes, created_at)
              SELECT ?2, species_id, confidence, count_min, count_max, notes, created_at
              FROM sequence_species WHERE sequence_id = ?1",
-            params![id, target],
-        )?;
-        conn.execute(
-            "INSERT OR IGNORE INTO sequence_tags (sequence_id, tag_id, created_at)
-             SELECT ?2, tag_id, created_at FROM sequence_tags WHERE sequence_id = ?1",
             params![id, target],
         )?;
         conn.execute("DELETE FROM sequences WHERE id = ?1", [id])?;

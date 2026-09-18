@@ -119,9 +119,10 @@ Trois règles reprises de Spoor, chacune payée une fois là-bas :
 1. **Plusieurs espèces par séquence**, chacune avec **sa propre** confiance.
 2. **Confiance à trois niveaux** : `certain` / `probable` / `possible`. Pas de note sur 10 —
    une échelle fine donne une fausse précision et personne ne sait trancher entre 6 et 7.
-3. **Espèce ≠ tag.** Les tags libres (`tags`, `sequence_tags`) existent pour le reste
-   (« juvénile », « comportement de marquage », « bandeau illisible ») et filtrent en **ET**,
-   là où les espèces filtrent en **OU**. Pas de catégories de tags : détour inutile dans Spoor.
+3. **Pas de tags.** Ils ont existé ici, repris de Spoor par mimétisme, puis ont été retirés
+   (migration 006). Sur un carnet de terrain multi-usages ils servent ; sur un dépouillement
+   de pièges photo, l'espèce, l'état et les notes couvraient déjà le besoin. Un axe de
+   classement qui ne sert pas reste un axe qu'il faut comprendre, remplir et filtrer.
 
 Un état explicite complète l'espèce : `empty` (fausse déclenche, rien de visible),
 `unidentified` (quelque chose passe, non identifiable), `human`, `vehicle`, `livestock`.
@@ -236,7 +237,7 @@ Deux garde-fous, parce que c'est la seule opération vraiment irréversible :
 
 Un promeneur, un chien, un tracteur : l'information compte pour les statistiques, la vidéo
 non. Le fichier va à la corbeille, **la ligne reste**, avec tout ce qui permet d'analyser :
-nom de fichier, piège, date et heure, durée, séquence, espèce ou état, tags, notes.
+nom de fichier, piège, date et heure, durée, séquence, espèce ou état, notes.
 
 `file_state` passe à `purged`, `file_removed_at` et `file_removed_reason` sont renseignés.
 La vidéo reste comptée dans toutes les statistiques ; seule la lecture est impossible, et
@@ -291,7 +292,7 @@ déclenchements de cette tranche, et non les passages commencés avant minuit. U
 hors séquence (sans date exploitable) y reste visible, là où les vues par séquence la
 laissent forcément de côté.
 
-**Recherche.** Filtres combinables : pièges, espèces (OU), tags (ET), confiance minimale,
+**Recherche.** Filtres combinables : pièges, espèces (OU), confiance minimale,
 plage de dates, mois toutes années, plage horaire, jour/nuit, durée de séquence,
 état (`empty`, non dépouillé…), texte libre sur les notes.
 

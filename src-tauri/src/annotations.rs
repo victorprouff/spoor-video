@@ -1,10 +1,12 @@
 //! Annotation des séquences (§5).
 //!
-//! Trois axes distincts, jamais confondus — la leçon la plus chère de Spoor :
+//! Deux axes distincts, jamais confondus :
 //! - **état** : ce que montre la séquence quand ce n'est pas une espèce
 //!   (`empty`, `human`, `vehicle`, `livestock`, `unidentified`) ;
-//! - **espèces** : plusieurs par séquence, chacune avec **sa** confiance ;
-//! - **tags** : mots-clés libres, qui filtrent en ET.
+//! - **espèces** : plusieurs par séquence, chacune avec **sa** confiance.
+//!
+//! Spoor a un troisième axe, les tags. Il a été repris ici par mimétisme puis retiré
+//! (migration 006) : l'espèce, l'état et les notes couvraient déjà le besoin.
 
 use chrono::Utc;
 use rusqlite::{params, Connection};
@@ -28,10 +30,6 @@ pub struct Annotation {
     pub add_species: Vec<SpeciesPick>,
     #[serde(default)]
     pub remove_species: Vec<String>,
-    #[serde(default)]
-    pub add_tags: Vec<String>,
-    #[serde(default)]
-    pub remove_tags: Vec<String>,
     pub notes: Option<String>,
     /// `Some(false)` remet explicitement une séquence « à dépouiller ».
     pub reviewed: Option<bool>,
@@ -42,8 +40,6 @@ pub struct AnnotateReport {
     pub sequences_touched: usize,
     pub species_added: usize,
     pub species_removed: usize,
-    pub tags_added: usize,
-    pub tags_removed: usize,
 }
 
 const CONFIDENCES: &[&str] = &["certain", "probable", "possible"];
@@ -102,17 +98,6 @@ pub fn annotate(
         ..Default::default()
     };
 
-    // Les tags sont créés à la volée : saisir un mot-clé ne doit pas demander un détour
-    // par un écran de gestion.
-    let mut tag_ids = Vec::new();
-    for name in &input.add_tags {
-        let name = name.trim();
-        if name.is_empty() {
-            continue;
-        }
-        tag_ids.push(ensure_tag(&tx, name, &now)?);
-    }
-
     for sequence_id in sequence_ids {
         let exists: i64 = tx.query_row(
             "SELECT COUNT(*) FROM sequences WHERE id = ?1 AND deleted_at IS NULL",
@@ -159,21 +144,6 @@ pub fn annotate(
                     pick.count_max,
                     now
                 ],
-            )?;
-        }
-
-        for tag_id in &tag_ids {
-            report.tags_added += tx.execute(
-                "INSERT OR IGNORE INTO sequence_tags (sequence_id, tag_id, created_at)
-                 VALUES (?1, ?2, ?3)",
-                params![sequence_id, tag_id, now],
-            )?;
-        }
-        for name in &input.remove_tags {
-            report.tags_removed += tx.execute(
-                "DELETE FROM sequence_tags WHERE sequence_id = ?1 AND tag_id IN
-                     (SELECT id FROM tags WHERE name = ?2)",
-                params![sequence_id, name.trim()],
             )?;
         }
 
@@ -247,45 +217,6 @@ fn count_species(conn: &Connection, sequence_ids: &[String]) -> Result<i64, DbEr
         .map(|s| s as &dyn rusqlite::ToSql)
         .collect();
     Ok(conn.query_row(&sql, params.as_slice(), |r| r.get(0))?)
-}
-
-fn ensure_tag(conn: &Connection, name: &str, now: &str) -> Result<String, DbError> {
-    if let Ok(id) = conn.query_row(
-        "SELECT id FROM tags WHERE name = ?1 AND deleted_at IS NULL",
-        [name],
-        |r| r.get::<_, String>(0),
-    ) {
-        return Ok(id);
-    }
-    let id = uuid::Uuid::new_v4().to_string();
-    conn.execute(
-        "INSERT INTO tags (id, name, created_at, updated_at) VALUES (?1, ?2, ?3, ?3)",
-        params![id, name, now],
-    )?;
-    Ok(id)
-}
-
-pub fn list_tags(conn: &Connection) -> Result<Vec<Tag>, DbError> {
-    let mut stmt = conn.prepare(
-        "SELECT t.id, t.name,
-                (SELECT COUNT(*) FROM sequence_tags st WHERE st.tag_id = t.id)
-         FROM tags t WHERE t.deleted_at IS NULL ORDER BY t.name",
-    )?;
-    let rows = stmt.query_map([], |r| {
-        Ok(Tag {
-            id: r.get(0)?,
-            name: r.get(1)?,
-            usage_count: r.get(2)?,
-        })
-    })?;
-    Ok(rows.collect::<Result<Vec<_>, _>>()?)
-}
-
-#[derive(Debug, serde::Serialize)]
-pub struct Tag {
-    pub id: String,
-    pub name: String,
-    pub usage_count: i64,
 }
 
 #[cfg(test)]
@@ -491,23 +422,6 @@ mod tests {
             },
         )
         .unwrap();
-    }
-
-    #[test]
-    fn les_tags_sont_crees_a_la_volee_et_partages() {
-        let mut conn = db();
-        annotate(
-            &mut conn,
-            &ids(&["s1", "s2"]),
-            Annotation {
-                add_tags: vec!["juvénile".into(), "  juvénile  ".into()],
-                ..Default::default()
-            },
-        )
-        .unwrap();
-        let tags = list_tags(&conn).unwrap();
-        assert_eq!(tags.len(), 1, "le même mot-clé n'est pas dupliqué");
-        assert_eq!(tags[0].usage_count, 2);
     }
 
     #[test]

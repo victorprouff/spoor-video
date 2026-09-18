@@ -6,7 +6,7 @@ use chrono::Utc;
 use rusqlite::params;
 use tauri::Manager;
 
-use crate::annotations::{self, AnnotateReport, Annotation, Tag};
+use crate::annotations::{self, AnnotateReport, Annotation};
 use crate::db::{Db, DbError};
 use crate::deletions::{self, DeletePreview, DeleteReport, Trash};
 use crate::export::{self, CopyReport, ExportReport};
@@ -331,10 +331,6 @@ pub fn annotate_sequences(
     annotations::annotate(&mut db.conn.lock().unwrap(), &sequence_ids, annotation)
 }
 
-#[tauri::command]
-pub fn list_tags(db: tauri::State<'_, Db>) -> Result<Vec<Tag>, DbError> {
-    annotations::list_tags(&db.conn.lock().unwrap())
-}
 
 // --- Statistiques ---------------------------------------------------------
 

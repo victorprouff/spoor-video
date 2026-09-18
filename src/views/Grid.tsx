@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { convertFileSrc } from '@tauri-apps/api/core';
 
 import {
@@ -8,7 +8,6 @@ import {
   gridPage,
   listSequenceVideos,
   listSpecies,
-  listTags,
   listTraps,
   mergeSequences,
   regroupSequences,
@@ -22,7 +21,6 @@ import type {
   GridPage,
   GridTile,
   Species,
-  Tag,
   Trap,
 } from '../api';
 import { SUN_PHASES } from '../api';
@@ -42,7 +40,6 @@ export function Grid({ onError }: { onError: (e: string | null) => void }) {
   const [page, setPage] = useState<GridPage | null>(null);
   const [traps, setTraps] = useState<Trap[]>([]);
   const [species, setSpecies] = useState<Species[]>([]);
-  const [tags, setTags] = useState<Tag[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const lastClicked = useRef<string | null>(null);
   const [reviewAt, setReviewAt] = useState<number | null>(null);
@@ -68,7 +65,6 @@ export function Grid({ onError }: { onError: (e: string | null) => void }) {
   useEffect(() => {
     listTraps().then(setTraps).catch(() => undefined);
     listSpecies().then(setSpecies).catch(() => undefined);
-    listTags().then(setTags).catch(() => undefined);
   }, [page]);
 
   const tiles = page?.tiles ?? [];
@@ -167,7 +163,6 @@ export function Grid({ onError }: { onError: (e: string | null) => void }) {
       await annotateSequences([...selected], annotation);
       clear();
       await refresh();
-      setTags(await listTags());
     } catch (e) {
       onError(String(e));
     }
@@ -175,7 +170,7 @@ export function Grid({ onError }: { onError: (e: string | null) => void }) {
 
   return (
     <div className="stack grid-view">
-      <Filters filter={filter} onChange={setFilter} traps={traps} species={species} tags={tags} />
+      <Filters filter={filter} onChange={setFilter} traps={traps} species={species} />
 
       <div className="row row--flush">
         <span className="muted small">
@@ -444,9 +439,6 @@ function Tile({
           </span>
         )}
         {!tile.species.length && stateLabel && <span className="chip">{stateLabel}</span>}
-        {tile.tags.length > 0 && (
-          <span className="muted small">{tile.tags.map((t) => `#${t}`).join(' ')}</span>
-        )}
       </div>
     </button>
   );
@@ -468,17 +460,6 @@ function AnnotationBar({
 }) {
   const [picked, setPicked] = useState<Map<string, Confidence>>(new Map());
   const [confidence, setConfidence] = useState<Confidence>('certain');
-  const [tagText, setTagText] = useState('');
-
-  const tagList = useMemo(
-    () =>
-      tagText
-        .split(',')
-        .map((t) => t.trim())
-        .filter(Boolean),
-    [tagText],
-  );
-
   const applySpecies = () => {
     if (picked.size === 0) return;
     onApply({
@@ -488,10 +469,8 @@ function AnnotationBar({
         count_min: null,
         count_max: null,
       })),
-      add_tags: tagList,
     });
     setPicked(new Map());
-    setTagText('');
   };
 
   const toggle = (id: string) =>
@@ -525,12 +504,6 @@ function AnnotationBar({
         ))}
       </select>
 
-      <input
-        placeholder="tags, séparés par des virgules"
-        value={tagText}
-        onChange={(e) => setTagText(e.target.value)}
-      />
-
       <button className="primary" onClick={applySpecies} disabled={picked.size === 0}>
         Appliquer
       </button>
@@ -538,7 +511,7 @@ function AnnotationBar({
       <span className="actionbar__sep" />
 
       {STATES.map((s) => (
-        <button key={s.value} onClick={() => onApply({ state: s.value, add_tags: tagList })}>
+        <button key={s.value} onClick={() => onApply({ state: s.value })}>
           {s.label}
         </button>
       ))}

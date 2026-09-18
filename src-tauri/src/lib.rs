@@ -123,7 +123,6 @@ pub fn run() {
             commands::list_sequence_videos,
             commands::grid_page,
             commands::annotate_sequences,
-            commands::list_tags,
             commands::stats,
             commands::export_sequences_csv,
             commands::export_detections_csv,

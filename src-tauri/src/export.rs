@@ -61,9 +61,6 @@ pub fn sequences_csv(
                 (SELECT GROUP_CONCAT(ss.confidence, ' | ')
                    FROM sequence_species ss JOIN species sp ON sp.id = ss.species_id
                   WHERE ss.sequence_id = s.id),
-                (SELECT GROUP_CONCAT(tg.name, ' | ')
-                   FROM sequence_tags st JOIN tags tg ON tg.id = st.tag_id
-                  WHERE st.sequence_id = s.id),
                 s.notes, s.reviewed_at
          FROM sequences s JOIN traps t ON t.id = s.trap_id
          WHERE {where_sql}
@@ -87,7 +84,6 @@ pub fn sequences_csv(
             "minutes_apres_coucher".into(),
             "especes".into(),
             "confiances".into(),
-            "tags".into(),
             "notes".into(),
             "depouille_le".into(),
         ])
@@ -115,7 +111,6 @@ pub fn sequences_csv(
                 opt(r.get(12)?),
                 opt(r.get(13)?),
                 opt(r.get(14)?),
-                opt(r.get(15)?),
             ])
             .as_bytes(),
         )?;

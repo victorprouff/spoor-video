@@ -356,7 +356,6 @@ fn indexe_annote_puis_exporte_de_bout_en_bout() {
                 count_min: Some(1),
                 count_max: Some(1),
             }],
-            add_tags: vec!["crépuscule".into()],
             notes: Some("passe de gauche à droite ; s'arrête".into()),
             ..Default::default()
         },
@@ -375,7 +374,6 @@ fn indexe_annote_puis_exporte_de_bout_en_bout() {
     assert!(row.contains("Mare basse"));
     assert!(row.contains("Renard roux"));
     assert!(row.contains("probable"));
-    assert!(row.contains("crépuscule"));
     assert!(
         row.contains("\"passe de gauche à droite ; s'arrête\""),
         "la note contenant un point-virgule doit être encadrée : {row}"
