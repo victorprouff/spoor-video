@@ -463,3 +463,178 @@ button.small {
   padding: 2px 8px;
   font-size: 0.85em;
 }
+
+/* --- Grille de dépouillement --------------------------------------------- */
+
+/* La barre d'annotation est fixée en bas : ce qui agit reste sous la main. */
+.grid-view {
+  padding-bottom: 72px;
+}
+
+.filters {
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.tiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 6px;
+  text-align: left;
+  background: var(--bg);
+  border: 2px solid transparent;
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.tile:hover {
+  border-color: var(--border);
+}
+
+.tile--on {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, var(--bg));
+}
+
+.tile__image {
+  position: relative;
+  aspect-ratio: 4 / 3;
+  overflow: hidden;
+  border-radius: 4px;
+  background: var(--panel);
+}
+
+.tile__image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.tile__none {
+  display: flex;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  font-size: 0.8em;
+}
+
+.tile__count,
+.tile__long,
+.tile__warn {
+  position: absolute;
+  padding: 1px 6px;
+  font-size: 0.78em;
+  color: #fff;
+  background: rgb(0 0 0 / 65%);
+  border-radius: 10px;
+}
+
+.tile__count {
+  top: 5px;
+  right: 5px;
+}
+
+.tile__long {
+  bottom: 5px;
+  left: 5px;
+}
+
+.tile__warn {
+  top: 5px;
+  left: 5px;
+}
+
+.tile__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.tile__species {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 1px 6px;
+  font-size: 0.78em;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+/* La confiance se lit sans légende : plein, tireté, pointillé. */
+.chip--certain {
+  border-style: solid;
+}
+
+.chip--probable {
+  border-style: dashed;
+}
+
+.chip--possible {
+  border-style: dotted;
+  opacity: 0.8;
+}
+
+.actionbar {
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  left: 16px;
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 14px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 6px 24px rgb(0 0 0 / 22%);
+}
+
+.actionbar__sep {
+  width: 1px;
+  height: 24px;
+  background: var(--border);
+}
+
+.multi {
+  position: relative;
+}
+
+.multi__menu {
+  position: absolute;
+  z-index: 10;
+  top: calc(100% + 4px);
+  left: 0;
+  min-width: 240px;
+  max-height: 320px;
+  overflow: auto;
+  padding: 10px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 6px 24px rgb(0 0 0 / 22%);
+}
+
+.multi__item {
+  display: flex;
+  align-items: center;
+  padding: 3px 0;
+  font-size: 0.92em;
+  cursor: pointer;
+}

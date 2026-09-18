@@ -1,5 +1,7 @@
+mod annotations;
 mod commands;
 mod db;
+mod grid;
 mod hash;
 mod media;
 mod scan;
@@ -84,6 +86,9 @@ pub fn run() {
             commands::split_sequence,
             commands::merge_sequences,
             commands::list_sequence_videos,
+            commands::grid_page,
+            commands::annotate_sequences,
+            commands::list_tags,
         ])
         .run(tauri::generate_context!())
         .expect("erreur au lancement de l'application");

@@ -51,7 +51,7 @@ appliqués au démarrage, chacun dans sa transaction.
 - [x] 2. Indexation (parcours, empreinte, `ffprobe`, vignettes)
 - [x] 3. Pièges et référentiel d'espèces
 - [x] 4. Séquences : regroupement, scission, fusion
-- [ ] 5. Vue grille et annotation en masse
+- [x] 5. Vue grille et annotation en masse
 - [ ] 5b. Suppressions (corbeille, trace conservée, `missing`)
 - [ ] 6. Mode plein écran au clavier
 - [ ] 7. Recherche et filtres

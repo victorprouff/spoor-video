@@ -6,7 +6,9 @@ use chrono::Utc;
 use rusqlite::params;
 use tauri::Manager;
 
+use crate::annotations::{self, AnnotateReport, Annotation, Tag};
 use crate::db::{Db, DbError};
+use crate::grid::{self, GridFilter, GridPage};
 use crate::scan::{self, ScanReport};
 use crate::sequences::{self, RegroupReport, Sequence};
 use crate::species::{self, Species, SpeciesInput};
@@ -296,4 +298,25 @@ pub struct SequenceVideo {
     pub recorded_at: Option<String>,
     pub duration_s: Option<f64>,
     pub file_state: String,
+}
+
+// --- Grille et annotation -------------------------------------------------
+
+#[tauri::command]
+pub fn grid_page(db: tauri::State<'_, Db>, filter: GridFilter) -> Result<GridPage, DbError> {
+    grid::page(&db.conn.lock().unwrap(), filter)
+}
+
+#[tauri::command]
+pub fn annotate_sequences(
+    db: tauri::State<'_, Db>,
+    sequence_ids: Vec<String>,
+    annotation: Annotation,
+) -> Result<AnnotateReport, DbError> {
+    annotations::annotate(&mut db.conn.lock().unwrap(), &sequence_ids, annotation)
+}
+
+#[tauri::command]
+pub fn list_tags(db: tauri::State<'_, Db>) -> Result<Vec<Tag>, DbError> {
+    annotations::list_tags(&db.conn.lock().unwrap())
 }

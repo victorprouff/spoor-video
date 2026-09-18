@@ -136,6 +136,97 @@ export const updateSpecies = (id: string, input: SpeciesInput) =>
   invoke<void>('update_species', { id, input });
 export const deleteSpecies = (id: string) => invoke<void>('delete_species', { id });
 
+export type TileSpecies = {
+  id: string;
+  common_name: string;
+  color: string | null;
+  confidence: Confidence;
+};
+
+export type GridTile = {
+  id: string;
+  trap_id: string;
+  trap_name: string;
+  started_at: string;
+  ended_at: string;
+  video_count: number;
+  duration_s: number;
+  state: string | null;
+  notes: string | null;
+  reviewed: boolean;
+  auto_grouped: boolean;
+  thumbnails: string[];
+  species: TileSpecies[];
+  tags: string[];
+  unplayable_count: number;
+};
+
+export type GridPage = {
+  tiles: GridTile[];
+  total: number;
+  unreviewed_total: number;
+};
+
+export type GridFilter = {
+  trap_id: string | null;
+  review: 'unreviewed' | 'reviewed' | 'all';
+  states: string[];
+  species: string[];
+  tags: string[];
+  limit: number;
+  offset: number;
+};
+
+export type Confidence = 'certain' | 'probable' | 'possible';
+
+/** Les états qui ne sont pas une espèce. Nombreux, et ils ne doivent pas polluer
+    le référentiel d'espèces. */
+export const STATES: { value: string; label: string }[] = [
+  { value: 'empty', label: 'Rien / fausse déclenche' },
+  { value: 'unidentified', label: 'Indéterminé' },
+  { value: 'human', label: 'Humain' },
+  { value: 'vehicle', label: 'Véhicule' },
+  { value: 'livestock', label: 'Bétail' },
+];
+
+export const CONFIDENCES: { value: Confidence; label: string; key: string }[] = [
+  { value: 'certain', label: 'Certain', key: '1' },
+  { value: 'probable', label: 'Probable', key: '2' },
+  { value: 'possible', label: 'Possible', key: '3' },
+];
+
+export type SpeciesPick = {
+  species_id: string;
+  confidence: Confidence;
+  count_min: number | null;
+  count_max: number | null;
+};
+
+export type Annotation = {
+  state?: string | null;
+  add_species?: SpeciesPick[];
+  remove_species?: string[];
+  add_tags?: string[];
+  remove_tags?: string[];
+  notes?: string | null;
+  reviewed?: boolean | null;
+};
+
+export type AnnotateReport = {
+  sequences_touched: number;
+  species_added: number;
+  species_removed: number;
+  tags_added: number;
+  tags_removed: number;
+};
+
+export type Tag = { id: string; name: string; usage_count: number };
+
+export const gridPage = (filter: GridFilter) => invoke<GridPage>('grid_page', { filter });
+export const annotateSequences = (sequenceIds: string[], annotation: Annotation) =>
+  invoke<AnnotateReport>('annotate_sequences', { sequenceIds, annotation });
+export const listTags = () => invoke<Tag[]>('list_tags');
+
 export const listSequences = (trapId: string | null) =>
   invoke<Sequence[]>('list_sequences', { trapId });
 export const regroupSequences = () => invoke<RegroupReport>('regroup_sequences');
