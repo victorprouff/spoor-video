@@ -1,0 +1,189 @@
+/* Conventions reprises de Spoor : tout passe par des variables CSS, le thème est porté
+   par [data-theme] avec repli sur prefers-color-scheme, et rien n'est codé en dur. */
+
+:root {
+  --bg: #f6f5f2;
+  --panel: #ffffff;
+  --ink: #1c1b18;
+  --muted: #6b675f;
+  --accent: #5b7f5a;
+  --accent-ink: #ffffff;
+  --border: #dcd8d0;
+  --danger: #a4402f;
+  --warn: #9a6b1f;
+  --ok: #4a7a52;
+
+  --radius: 8px;
+  --gap: 12px;
+
+  /* Taille d'affichage réglable, comme dans Spoor. */
+  --ui-scale: 1;
+
+  color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+  --bg: #14161a;
+  --panel: #1c1f24;
+  --ink: #e8e6e1;
+  --muted: #9a958c;
+  --accent: #7ba37a;
+  --accent-ink: #10130f;
+  --border: #2d3138;
+  --danger: #d1705d;
+  --warn: #c79a4a;
+  --ok: #7ba37a;
+
+  color-scheme: dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --bg: #14161a;
+    --panel: #1c1f24;
+    --ink: #e8e6e1;
+    --muted: #9a958c;
+    --accent: #7ba37a;
+    --accent-ink: #10130f;
+    --border: #2d3138;
+    --danger: #d1705d;
+    --warn: #c79a4a;
+    --ok: #7ba37a;
+
+    color-scheme: dark;
+  }
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  font-size: calc(15px * var(--ui-scale));
+  line-height: 1.5;
+}
+
+h1,
+h2,
+h3 {
+  margin: 0 0 0.4em;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+h1 {
+  font-size: 1.5rem;
+}
+h2 {
+  font-size: 1.1rem;
+}
+
+code,
+.mono {
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 0.9em;
+}
+
+/* Disposition générale : une barre en haut, le contenu en dessous. */
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.app__bar {
+  display: flex;
+  align-items: center;
+  gap: var(--gap);
+  padding: 10px 16px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+
+.app__title {
+  font-weight: 600;
+}
+
+.app__spacer {
+  flex: 1;
+}
+
+.app__main {
+  flex: 1;
+  overflow: auto;
+  padding: 24px;
+}
+
+.panel {
+  max-width: 720px;
+  padding: 20px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+}
+
+.muted {
+  color: var(--muted);
+}
+
+.danger {
+  color: var(--danger);
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+}
+
+/* Petite grille clé / valeur pour l'état du socle. */
+.facts {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 16px;
+  margin: 0;
+}
+
+.facts dt {
+  color: var(--muted);
+}
+
+.facts dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+button {
+  font: inherit;
+  color: var(--ink);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+button:hover {
+  border-color: var(--accent);
+}
+
+button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+button.primary {
+  background: var(--accent);
+  color: var(--accent-ink);
+  border-color: var(--accent);
+}
