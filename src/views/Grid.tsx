@@ -6,12 +6,17 @@ import {
   STATES,
   annotateSequences,
   gridPage,
+  listSequenceVideos,
   listSpecies,
   listTags,
   listTraps,
+  mergeSequences,
+  regroupSequences,
+  splitSequence,
 } from '../api';
 import type {
   Annotation,
+  SequenceVideo,
   Confidence,
   GridFilter,
   GridPage,
@@ -24,6 +29,7 @@ import { SUN_PHASES } from '../api';
 import { DeleteDialog } from '../components/DeleteDialog';
 import { Export } from '../components/Export';
 import { SpeciesPicker } from '../components/SpeciesPicker';
+import { ViewControls, useDisplay, useThumbSize } from '../components/ViewControls';
 import { EMPTY_FILTER, Filters } from '../components/Filters';
 import { formatDateTime, formatDuration } from '../format';
 import { Review } from './Review';
@@ -42,6 +48,10 @@ export function Grid({ onError }: { onError: (e: string | null) => void }) {
   const [reviewAt, setReviewAt] = useState<number | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [deleteNote, setDeleteNote] = useState<string | null>(null);
+  const [display, setDisplay] = useDisplay('grid', 'tiles');
+  const [thumbSize, setThumbSize] = useThumbSize('grid', 220);
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
@@ -87,6 +97,54 @@ export function Grid({ onError }: { onError: (e: string | null) => void }) {
 
   const selectAll = () => setSelected(new Set(tiles.map((t) => t.id)));
   const clear = useCallback(() => setSelected(new Set()), []);
+
+  // --- Actions sur les séquences, rapatriées de l'ancienne vue Séquences ------
+
+  const regroup = async () => {
+    setBusy(true);
+    onError(null);
+    try {
+      const r = await regroupSequences();
+      clear();
+      await refresh();
+      setDeleteNote(
+        `${r.sequences_built} séquence(s) reconstruite(s), ` +
+          `${r.sequences_frozen} laissée(s) intacte(s)`,
+      );
+    } catch (e) {
+      onError(String(e));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const merge = async () => {
+    onError(null);
+    try {
+      await mergeSequences([...selected]);
+      clear();
+      await refresh();
+    } catch (e) {
+      onError(String(e));
+    }
+  };
+
+  const split = async (sequenceId: string, videoId: string) => {
+    onError(null);
+    try {
+      await splitSequence(sequenceId, videoId);
+      setExpanded(null);
+      await refresh();
+    } catch (e) {
+      onError(String(e));
+    }
+  };
+
+  // Fusionner n'a de sens qu'entre séquences d'un même piège : on le dit avant
+  // plutôt que de laisser le serveur refuser.
+  const selectedTiles = tiles.filter((t) => selected.has(t.id));
+  const sameTrap =
+    selectedTiles.length > 1 && new Set(selectedTiles.map((t) => t.trap_id)).size === 1;
 
   useEffect(() => {
     // Le plein écran a son propre clavier : deux gestionnaires actifs ensemble
@@ -162,19 +220,81 @@ export function Grid({ onError }: { onError: (e: string | null) => void }) {
             <button onClick={clear} disabled={selected.size === 0}>
               Désélectionner
             </button>
-            <span className="muted small">Clic pour choisir · Maj : plage · ⌘ : ajouter</span>
+            <button
+              onClick={merge}
+              disabled={!sameTrap}
+              title={
+                selectedTiles.length > 1 && !sameTrap
+                  ? 'Ces séquences appartiennent à des pièges différents'
+                  : 'Recoller plusieurs passages en un seul'
+              }
+            >
+              Fusionner ({selectedTiles.length})
+            </button>
+            <button onClick={regroup} disabled={busy} title="Reconstruire les regroupements">
+              {busy ? 'Regroupement…' : 'Regrouper'}
+            </button>
+            <span className="app__spacer" />
+            <ViewControls
+              display={display}
+              onDisplay={setDisplay}
+              size={thumbSize}
+              onSize={setThumbSize}
+            />
           </div>
-          <div className="tiles">
-            {tiles.map((tile) => (
-              <Tile
-                key={tile.id}
-                tile={tile}
-                selected={selected.has(tile.id)}
-                onClick={(e) => click(tile, e)}
-                onOpen={() => setReviewAt(tiles.findIndex((t) => t.id === tile.id))}
-              />
-            ))}
-          </div>
+          <p className="muted small">
+            Clic pour choisir · Maj : plage · ⌘ : ajouter. Un regroupement ne défait jamais une
+            séquence scindée, fusionnée ou déjà annotée.
+          </p>
+          {display === 'tiles' ? (
+            <div className="tiles" style={{ ['--tile-w' as string]: `${thumbSize}px` }}>
+              {tiles.map((tile) => (
+                <Tile
+                  key={tile.id}
+                  tile={tile}
+                  selected={selected.has(tile.id)}
+                  onClick={(e) => click(tile, e)}
+                  onOpen={() => setReviewAt(tiles.findIndex((t) => t.id === tile.id))}
+                />
+              ))}
+            </div>
+          ) : (
+            <table className="table">
+              <thead>
+                <tr>
+                  <th />
+                  <th>Début</th>
+                  <th>Piège</th>
+                  <th className="num">Vidéos</th>
+                  <th>Durée</th>
+                  <th>Espèces</th>
+                  <th>État</th>
+                  <th />
+                </tr>
+              </thead>
+              <tbody>
+                {tiles.map((tile) => (
+                  <SequenceRow
+                    key={tile.id}
+                    tile={tile}
+                    checked={selected.has(tile.id)}
+                    expanded={expanded === tile.id}
+                    thumbSize={thumbSize}
+                    onToggleCheck={() => {
+                      const next = new Set(selected);
+                      if (next.has(tile.id)) next.delete(tile.id);
+                      else next.add(tile.id);
+                      setSelected(next);
+                    }}
+                    onToggleExpand={() => setExpanded(expanded === tile.id ? null : tile.id)}
+                    onOpen={() => setReviewAt(tiles.findIndex((t) => t.id === tile.id))}
+                    onSplit={(videoId) => split(tile.id, videoId)}
+                    onError={onError}
+                  />
+                ))}
+              </tbody>
+            </table>
+          )}
         </section>
       )}
 
@@ -430,5 +550,129 @@ function AnnotationBar({
       </button>
       <button onClick={onCancel}>Annuler</button>
     </div>
+  );
+}
+
+
+/** Une séquence en ligne, dépliable sur ses vidéos — l'ancienne vue Séquences,
+    ramenée ici pour ne pas avoir deux écrans qui montrent la même chose. */
+function SequenceRow({
+  tile,
+  checked,
+  expanded,
+  thumbSize,
+  onToggleCheck,
+  onToggleExpand,
+  onOpen,
+  onSplit,
+  onError,
+}: {
+  tile: GridTile;
+  checked: boolean;
+  expanded: boolean;
+  thumbSize: number;
+  onToggleCheck: () => void;
+  onToggleExpand: () => void;
+  onOpen: () => void;
+  onSplit: (videoId: string) => void;
+  onError: (e: string | null) => void;
+}) {
+  const [videos, setVideos] = useState<SequenceVideo[] | null>(null);
+
+  useEffect(() => {
+    if (!expanded || videos) return;
+    listSequenceVideos(tile.id)
+      .then(setVideos)
+      .catch((e) => onError(String(e)));
+  }, [expanded, videos, tile.id, onError]);
+
+  const stateLabel = STATES.find((s) => s.value === tile.state)?.label;
+
+  return (
+    <>
+      <tr>
+        <td>
+          <input type="checkbox" checked={checked} onChange={onToggleCheck} />
+        </td>
+        <td>{formatDateTime(tile.started_at)}</td>
+        <td>{tile.trap_name}</td>
+        <td className="num">{tile.video_count}</td>
+        <td>
+          {formatDuration(tile.duration_s)}
+          {tile.duration_s >= 3600 && <span className="muted small"> · continue</span>}
+        </td>
+        <td>
+          {tile.species.length > 0 ? (
+            <span className="tile__species">
+              {tile.species.map((s) => (
+                <span key={s.id} className={`chip chip--${s.confidence}`}>
+                  <span className="swatch" style={{ background: s.color ?? 'transparent' }} />
+                  {s.common_name}
+                </span>
+              ))}
+            </span>
+          ) : stateLabel ? (
+            <span className="chip">{stateLabel}</span>
+          ) : (
+            <span className="muted small">—</span>
+          )}
+        </td>
+        <td>
+          {!tile.auto_grouped && (
+            <span className="badge" title="Découpage manuel : un regroupement ne le défera pas">
+              manuel
+            </span>
+          )}
+          {tile.reviewed ? (
+            <span className="badge badge--ok">dépouillée</span>
+          ) : (
+            <span className="muted small">à dépouiller</span>
+          )}
+        </td>
+        <td className="row--actions">
+          <button onClick={onOpen}>Dépouiller</button>
+          <button onClick={onToggleExpand}>{expanded ? 'Replier' : 'Vidéos'}</button>
+        </td>
+      </tr>
+      {expanded && (
+        <tr>
+          <td colSpan={8}>
+            {videos === null ? (
+              <p className="muted">Chargement…</p>
+            ) : (
+              <div className="thumbs" style={{ ['--tile-w' as string]: `${thumbSize}px` }}>
+                {videos.map((v, i) => (
+                  <figure key={v.id} className="thumb">
+                    {v.thumbnail_path ? (
+                      <img src={convertFileSrc(v.thumbnail_path)} alt="" loading="lazy" />
+                    ) : (
+                      <div className="thumb__none">pas de vignette</div>
+                    )}
+                    <figcaption>
+                      <span className="mono small">{v.file_name}</span>
+                      <span className="muted small">{formatDateTime(v.recorded_at)}</span>
+                      {v.file_state !== 'present' && (
+                        <span className="badge badge--warn">
+                          {v.file_state === 'missing' ? 'disparue' : 'supprimée'}
+                        </span>
+                      )}
+                      {i > 0 && (
+                        <button
+                          className="small"
+                          onClick={() => onSplit(v.id)}
+                          title="Cette vidéo et les suivantes partent dans une nouvelle séquence"
+                        >
+                          Scinder ici
+                        </button>
+                      )}
+                    </figcaption>
+                  </figure>
+                ))}
+              </div>
+            )}
+          </td>
+        </tr>
+      )}
+    </>
   );
 }

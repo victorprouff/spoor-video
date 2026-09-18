@@ -194,10 +194,16 @@ ffmpeg et ffprobe sont **embarqués dans l'application**, pas supposés install�
 
 Deux vues, la même donnée.
 
-**Grille.** Vignettes d'un lot filtré, séquences repliées (une tuile par séquence, badge
-du nombre de vidéos), survol pour la planche d'images. Sélection multiple, annotation en
-masse, aperçu au survol. C'est la vue du tri grossier : vider les fausses déclenches d'un
-lot de 400 fichiers tient en quelques minutes.
+**Dépouillement.** Les passages, **en tuiles ou en liste** — deux façons de voir la même
+chose, pas deux écrans. Les tuiles servent au tri grossier : vider les fausses déclenches
+d'un lot de 400 fichiers tient en quelques minutes, et survoler une tuile fait défiler les
+vignettes de ses vidéos. La liste sert à lire les détails et porte le découpage :
+regrouper, scinder à une vidéo donnée, fusionner. Sélection multiple et annotation en masse
+dans les deux modes. **La taille des vignettes est réglable**, et le réglage est retenu.
+
+Une leçon d'usage : un écran « Séquences » distinct de la grille a existé, et il faisait
+doublon — deux vues des mêmes objets, avec des actions réparties entre les deux sans
+raison. Fondu en un seul écran à deux modes d'affichage.
 
 **Plein écran.** Une séquence à la fois, lecture en boucle, enchaînement automatique des
 vidéos du groupe. Tout se fait au clavier : touches d'espèce configurables, `1`/`2`/`3`

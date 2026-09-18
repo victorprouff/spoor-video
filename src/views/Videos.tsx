@@ -5,6 +5,7 @@ import { STATES, SUN_PHASES, listSpecies, listTags, listTraps, listVideos } from
 import type { Species, Tag, Trap, VideoFilter, VideoPage, VideoRow } from '../api';
 import { EMPTY_FILTER, Filters } from '../components/Filters';
 import { VideoPlayer } from '../components/VideoPlayer';
+import { ViewControls, useDisplay, useThumbSize } from '../components/ViewControls';
 import { formatDateTime, formatDuration } from '../format';
 
 const EMPTY_VIDEO_FILTER: VideoFilter = {
@@ -35,6 +36,10 @@ export function Videos({ onError }: { onError: (e: string | null) => void }) {
   const [species, setSpecies] = useState<Species[]>([]);
   const [tags, setTags] = useState<Tag[]>([]);
   const [playing, setPlaying] = useState<VideoRow | null>(null);
+  // Les fichiers se regardent plutôt en liste : c'est là qu'on cherche une capture
+  // précise. La grille sert à balayer d'un coup d'œil.
+  const [display, setDisplay] = useDisplay('videos', 'list');
+  const [thumbSize, setThumbSize] = useThumbSize('videos', 220);
 
   const refresh = useCallback(async () => {
     try {
@@ -149,12 +154,74 @@ export function Videos({ onError }: { onError: (e: string | null) => void }) {
           <option value="date">Plus récentes d’abord</option>
           <option value="date_asc">Plus anciennes d’abord</option>
         </select>
+        <ViewControls
+          display={display}
+          onDisplay={setDisplay}
+          size={thumbSize}
+          onSize={setThumbSize}
+          tilesLabel="Grille"
+        />
         <button onClick={() => setFilter(EMPTY_VIDEO_FILTER)}>Réinitialiser</button>
       </div>
 
       <section className="panel stack">
         {rows.length === 0 ? (
           <p className="muted">Aucune vidéo ne correspond à ces filtres.</p>
+        ) : display === 'tiles' ? (
+          <div className="tiles" style={{ ['--tile-w' as string]: `${thumbSize}px` }}>
+            {rows.map((v) => (
+              <button
+                key={v.id}
+                type="button"
+                className="tile"
+                onClick={() => v.file_state === 'present' && setPlaying(v)}
+                title={v.file_state === 'present' ? 'Lire' : 'Le fichier n’est plus là'}
+              >
+                <div className="tile__image">
+                  {v.thumbnail_path ? (
+                    <img src={convertFileSrc(v.thumbnail_path)} alt="" loading="lazy" />
+                  ) : (
+                    <div className="tile__none">pas de vignette</div>
+                  )}
+                  {v.duration_s != null && (
+                    <span className="tile__count">{v.duration_s.toFixed(0)} s</span>
+                  )}
+                  {v.file_state !== 'present' && (
+                    <span className="tile__warn" title="Fichier supprimé ou disparu">
+                      ⌀
+                    </span>
+                  )}
+                </div>
+                <div className="tile__meta">
+                  <span className="small">
+                    {v.recorded_at ? (
+                      formatDateTime(v.recorded_at)
+                    ) : (
+                      <span className="danger">sans date</span>
+                    )}
+                  </span>
+                  <span className="muted small">
+                    {v.trap_name}
+                    {v.sun_phase &&
+                      ` · ${SUN_PHASES.find((p) => p.value === v.sun_phase)?.label.toLowerCase()}`}
+                  </span>
+                  {v.species.length > 0 && (
+                    <span className="tile__species">
+                      {v.species.map((name, i) => (
+                        <span key={name} className="chip">
+                          <span
+                            className="swatch"
+                            style={{ background: v.species_colors[i] ?? 'transparent' }}
+                          />
+                          {name}
+                        </span>
+                      ))}
+                    </span>
+                  )}
+                </div>
+              </button>
+            ))}
+          </div>
         ) : (
           <table className="table table--videos">
             <thead>
@@ -175,13 +242,16 @@ export function Videos({ onError }: { onError: (e: string | null) => void }) {
                     {v.thumbnail_path ? (
                       <img
                         className="thumb--mini"
+                        style={{ width: thumbSize / 2 }}
                         src={convertFileSrc(v.thumbnail_path)}
                         alt=""
                         loading="lazy"
                         onClick={() => v.file_state === 'present' && setPlaying(v)}
                       />
                     ) : (
-                      <span className="thumb--mini thumb__none">—</span>
+                      <span className="thumb--mini thumb__none" style={{ width: thumbSize / 2 }}>
+                        —
+                      </span>
                     )}
                   </td>
                   <td>

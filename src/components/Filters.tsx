@@ -1,6 +1,8 @@
 import { useState } from 'react';
 
 import { CONFIDENCES, SUN_PHASES } from '../api';
+import { SpeciesPicker } from './SpeciesPicker';
+import type { Confidence as Conf } from '../api';
 import type { Confidence, GridFilter, Species, Tag, Trap } from '../api';
 import { monthName } from '../format';
 
@@ -83,7 +85,23 @@ export function Filters({
   durationLabel?: string;
   durationHint?: string;
 }) {
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(() => {
+    // Ouvert par défaut : cachés derrière un bouton, les filtres passaient inaperçus.
+    try {
+      return localStorage.getItem('filters-open') !== '0';
+    } catch {
+      return true;
+    }
+  });
+
+  const setOpenPersisted = (value: boolean) => {
+    setOpen(value);
+    try {
+      localStorage.setItem('filters-open', value ? '1' : '0');
+    } catch {
+      /* sans conséquence : le choix tient pour la session */
+    }
+  };
   const set = <K extends keyof GridFilter>(key: K, value: GridFilter[K]) =>
     onChange({ ...filter, [key]: value, offset: 0 });
 
@@ -123,8 +141,54 @@ export function Filters({
           <option value="reviewed">Dépouillées</option>
         </select>
 
-        <button onClick={() => setOpen(!open)} className={n > 0 ? 'tab--on' : undefined}>
-          Filtres{n > 0 ? ` (${n})` : ''}
+        <label className="inline">
+          Du
+          <input
+            type="date"
+            value={filter.from ?? ''}
+            onChange={(e) => set('from', e.target.value || null)}
+          />
+          au
+          <input
+            type="date"
+            value={filter.to ?? ''}
+            onChange={(e) => set('to', e.target.value || null)}
+          />
+        </label>
+
+        <label className="inline">
+          Entre
+          <input
+            type="number"
+            min={0}
+            max={23}
+            className="tiny"
+            placeholder="0"
+            value={filter.hour_from ?? ''}
+            onChange={(e) => set('hour_from', num(e.target.value))}
+          />
+          h et
+          <input
+            type="number"
+            min={0}
+            max={23}
+            className="tiny"
+            placeholder="23"
+            value={filter.hour_to ?? ''}
+            onChange={(e) => set('hour_to', num(e.target.value))}
+          />
+          h
+          <span className="muted small" title="22 → 4 retient la nuit entière">
+            (22 → 4 traverse minuit)
+          </span>
+        </label>
+
+        <button
+          onClick={() => setOpenPersisted(!open)}
+          className={n > 0 ? 'tab--on' : undefined}
+        >
+          {open ? 'Replier' : 'Filtres'}
+          {n > 0 ? ` (${n})` : ''}
         </button>
         {n > 0 && (
           <button onClick={() => (onClear ? onClear() : onChange(EMPTY_FILTER))}>Effacer</button>
@@ -135,19 +199,13 @@ export function Filters({
         <div className="filters__panel">
           <fieldset>
             <legend>Espèces — l’une OU l’autre</legend>
-            <div className="chips">
-              {species.map((s) => (
-                <label key={s.id} className={filter.species.includes(s.id) ? 'chip chip--on' : 'chip'}>
-                  <input
-                    type="checkbox"
-                    checked={filter.species.includes(s.id)}
-                    onChange={() => toggle('species', s.id as never)}
-                  />
-                  <span className="swatch" style={{ background: s.color ?? 'transparent' }} />
-                  {s.common_name}
-                </label>
-              ))}
-            </div>
+            <SpeciesPicker
+              species={species}
+              selected={
+                new Map(filter.species.map((id) => [id, 'certain' as Conf]))
+              }
+              onToggle={(id) => toggle('species', id as never)}
+            />
             <label className="inline">
               Confiance minimale
               <select
@@ -218,53 +276,7 @@ export function Filters({
           </fieldset>
 
           <fieldset>
-            <legend>Période précise</legend>
-            <div className="row row--flush">
-              <label className="inline">
-                Du
-                <input
-                  type="date"
-                  value={filter.from ?? ''}
-                  onChange={(e) => set('from', e.target.value || null)}
-                />
-              </label>
-              <label className="inline">
-                au
-                <input
-                  type="date"
-                  value={filter.to ?? ''}
-                  onChange={(e) => set('to', e.target.value || null)}
-                />
-              </label>
-            </div>
-          </fieldset>
-
-          <fieldset>
-            <legend>Heure et lumière</legend>
-            <div className="row row--flush">
-              <label className="inline">
-                Entre
-                <input
-                  type="number"
-                  min={0}
-                  max={23}
-                  className="tiny"
-                  value={filter.hour_from ?? ''}
-                  onChange={(e) => set('hour_from', num(e.target.value))}
-                />
-                h et
-                <input
-                  type="number"
-                  min={0}
-                  max={23}
-                  className="tiny"
-                  value={filter.hour_to ?? ''}
-                  onChange={(e) => set('hour_to', num(e.target.value))}
-                />
-                h
-              </label>
-              <span className="muted small">22 → 4 traverse minuit</span>
-            </div>
+            <legend>Lumière</legend>
             <div className="chips">
               {SUN_PHASES.map((p) => (
                 <label
