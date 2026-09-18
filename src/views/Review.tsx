@@ -10,7 +10,21 @@ import {
   splitSequence,
 } from '../api';
 import type { Confidence, GridTile, SequenceVideo, Species } from '../api';
+import { SpeciesPicker } from '../components/SpeciesPicker';
 import { formatDateTime } from '../format';
+
+/**
+ * Le son est **allumé par défaut** : un piège photo enregistre des brames, des cris et
+ * des froissements qui identifient souvent mieux qu'une image nocturne. Le choix
+ * contraire est retenu d'une vidéo à l'autre, et d'une session à l'autre.
+ */
+function storedMuted(): boolean {
+  try {
+    return localStorage.getItem('video-muted') === '1';
+  } catch {
+    return false;
+  }
+}
 
 /**
  * Dépouillement plein écran, au clavier (§5).
@@ -41,7 +55,17 @@ export function Review({
   const [picked, setPicked] = useState<Map<string, Confidence>>(new Map());
   const [flash, setFlash] = useState<string | null>(null);
   const [helpOpen, setHelpOpen] = useState(false);
+  const [muted, setMuted] = useState(storedMuted);
+  const [searching, setSearching] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem('video-muted', muted ? '1' : '0');
+    } catch {
+      /* sans conséquence : le choix tient pour la session */
+    }
+  }, [muted]);
 
   const sequence = queue[index] as GridTile | undefined;
 
@@ -164,6 +188,9 @@ export function Review({
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
+      // Pendant une recherche d'espèce, taper « sanglier » ne doit pas déclencher une
+      // demi-douzaine d'actions.
+      if (searching) return;
       const key = e.key;
 
       if (key === 'Escape') return onClose();
@@ -210,6 +237,12 @@ export function Review({
         return;
       }
 
+      // Maj+M plutôt que « m » : cette lettre est le raccourci de la martre. Les
+      // combinaisons avec Maj sont réservées aux actions, jamais aux espèces.
+      if (e.shiftKey && key.toLowerCase() === 'm') {
+        e.preventDefault();
+        return setMuted((m) => !m);
+      }
       if (e.shiftKey && key.toLowerCase() === 's') {
         e.preventDefault();
         return void split();
@@ -231,6 +264,7 @@ export function Review({
   }, [
     index,
     playable.length,
+    searching,
     species,
     goTo,
     validate,
@@ -269,6 +303,9 @@ export function Review({
         <span className="muted">
           {index + 1} / {queue.length}
         </span>
+        <button onClick={() => setMuted((m) => !m)} title="Couper le son (Maj+M)">
+          {muted ? 'Son coupé' : 'Son actif'}
+        </button>
         <button onClick={() => setHelpOpen(!helpOpen)}>Aide (?)</button>
         <button onClick={onClose}>Fermer (Échap)</button>
       </header>
@@ -283,8 +320,19 @@ export function Review({
             src={convertFileSrc(current.file_path)}
             autoPlay
             loop={playable.length === 1}
-            muted
+            muted={muted}
             controls
+            onVolumeChange={(e) => setMuted((e.target as HTMLVideoElement).muted)}
+            onCanPlay={(e) => {
+              // Si la fenêtre refuse la lecture avec son, mieux vaut une vidéo muette
+              // qu'une image figée : on se rabat, et la case reflète ce qui se passe.
+              const el = e.target as HTMLVideoElement;
+              el.play().catch(() => {
+                el.muted = true;
+                setMuted(true);
+                void el.play();
+              });
+            }}
             onEnded={onEnded}
             onError={() =>
               onError(
@@ -325,23 +373,14 @@ export function Review({
           </button>
         </div>
 
-        <div className="review__row review__species">
-          {withShortcut.map((s) => (
-            <button
-              key={s.id}
-              className={picked.has(s.id) ? 'tile--on' : undefined}
-              onClick={() => toggleSpecies(s.id)}
-            >
-              <span className="swatch" style={{ background: s.color ?? 'transparent' }} />
-              <kbd>{s.shortcut_key}</kbd> {s.common_name}
-              {picked.has(s.id) && <em> · {picked.get(s.id)}</em>}
-            </button>
-          ))}
-          {withShortcut.length === 0 && (
-            <span className="muted small">
-              Aucune espèce n’a de raccourci. Ajoute-les dans l’onglet Espèces.
-            </span>
-          )}
+        <div className="review__row">
+          <SpeciesPicker
+            species={species}
+            selected={picked}
+            onToggle={toggleSpecies}
+            onSetConfidence={(id, c) => setPicked((p) => new Map(p).set(id, c))}
+            onSearchFocus={setSearching}
+          />
         </div>
 
         <div className="review__row">
@@ -374,6 +413,7 @@ function Help({ onClose, species }: { onClose: () => void; species: Species[] })
     ['Entrée', 'valider les espèces cochées et passer à la suivante'],
     ['0', 'rien à voir : valide et passe à la suivante'],
     ['1 2 3', 'certain / probable / possible'],
+    ['Maj+M', 'couper ou rétablir le son'],
     ['Maj+S', 'scinder la séquence à la vidéo courante'],
     ['Maj+F', 'fusionner avec la séquence précédente'],
     ['Échap', 'fermer le mode plein écran'],

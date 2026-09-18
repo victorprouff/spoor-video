@@ -23,6 +23,7 @@ import type {
 import { SUN_PHASES } from '../api';
 import { DeleteDialog } from '../components/DeleteDialog';
 import { Export } from '../components/Export';
+import { SpeciesPicker } from '../components/SpeciesPicker';
 import { EMPTY_FILTER, Filters } from '../components/Filters';
 import { formatDateTime, formatDuration } from '../format';
 import { Review } from './Review';
@@ -345,7 +346,7 @@ function AnnotationBar({
   onCancel: () => void;
   onDelete: () => void;
 }) {
-  const [speciesId, setSpeciesId] = useState('');
+  const [picked, setPicked] = useState<Map<string, Confidence>>(new Map());
   const [confidence, setConfidence] = useState<Confidence>('certain');
   const [tagText, setTagText] = useState('');
 
@@ -359,29 +360,44 @@ function AnnotationBar({
   );
 
   const applySpecies = () => {
-    if (!speciesId) return;
+    if (picked.size === 0) return;
     onApply({
-      add_species: [{ species_id: speciesId, confidence, count_min: null, count_max: null }],
+      add_species: [...picked].map(([species_id, conf]) => ({
+        species_id,
+        confidence: conf,
+        count_min: null,
+        count_max: null,
+      })),
       add_tags: tagList,
     });
+    setPicked(new Map());
     setTagText('');
   };
+
+  const toggle = (id: string) =>
+    setPicked((p) => {
+      const next = new Map(p);
+      if (next.has(id)) next.delete(id);
+      else next.set(id, confidence);
+      return next;
+    });
 
   return (
     <div className="actionbar">
       <strong>{count} sélectionnée(s)</strong>
 
-      <select value={speciesId} onChange={(e) => setSpeciesId(e.target.value)}>
-        <option value="">Espèce…</option>
-        {species.map((s) => (
-          <option key={s.id} value={s.id}>
-            {s.common_name}
-            {s.shortcut_key ? ` (${s.shortcut_key})` : ''}
-          </option>
-        ))}
-      </select>
+      <SpeciesPicker
+        species={species}
+        selected={picked}
+        onToggle={toggle}
+        onSetConfidence={(id, c) => setPicked((p) => new Map(p).set(id, c))}
+      />
 
-      <select value={confidence} onChange={(e) => setConfidence(e.target.value as Confidence)}>
+      <select
+        value={confidence}
+        onChange={(e) => setConfidence(e.target.value as Confidence)}
+        title="Confiance appliquée aux espèces ajoutées ensuite"
+      >
         {CONFIDENCES.map((c) => (
           <option key={c.value} value={c.value}>
             {c.label}
@@ -395,7 +411,7 @@ function AnnotationBar({
         onChange={(e) => setTagText(e.target.value)}
       />
 
-      <button className="primary" onClick={applySpecies} disabled={!speciesId}>
+      <button className="primary" onClick={applySpecies} disabled={picked.size === 0}>
         Appliquer
       </button>
 
