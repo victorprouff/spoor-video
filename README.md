@@ -20,7 +20,13 @@ npm run tauri:dev
 | `npm run typecheck` | vérifie le TypeScript |
 | `cargo test` (dans `src-tauri/`) | tests Rust, dont les migrations |
 
-Prérequis : Node, Rust, et les outils en ligne de commande Xcode.
+Prérequis : Node, Rust, les outils en ligne de commande Xcode, et **ffmpeg**
+(`brew install ffmpeg`).
+
+> ⚠️ ffmpeg n'est pas encore embarqué dans l'application : il est cherché d'abord dans
+> les ressources de l'app, puis dans `/opt/homebrew/bin`, `/usr/local/bin`, `/usr/bin`
+> et enfin le `PATH`. L'embarquer reste à faire avant toute distribution
+> (`spec.md` §4 le prévoit).
 
 ## Où vivent les données
 
@@ -42,7 +48,7 @@ appliqués au démarrage, chacun dans sa transaction.
 Étapes de `spec.md` §10 :
 
 - [x] 1. Squelette Tauri + SQLite, migrations au boot, conventions CSS
-- [ ] 2. Indexation (parcours, empreinte, `ffprobe`, vignettes)
+- [x] 2. Indexation (parcours, empreinte, `ffprobe`, vignettes)
 - [ ] 3. Pièges et référentiel d'espèces
 - [ ] 4. Séquences : regroupement, scission, fusion
 - [ ] 5. Vue grille et annotation en masse

@@ -187,3 +187,72 @@ button.primary {
   color: var(--accent-ink);
   border-color: var(--accent);
 }
+
+/* --- Indexation ---------------------------------------------------------- */
+
+.app__main.stack {
+  gap: 16px;
+}
+
+.notice {
+  border-left: 3px solid var(--warn);
+}
+
+.notice--warn {
+  color: var(--ink);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 8px 0;
+  border-top: 1px solid var(--border);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th,
+.table td {
+  text-align: left;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.table th {
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.table .num,
+.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Compte rendu : chaque nombre correspond à une décision prise, aucun silence. */
+.tallies {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 8px 16px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.tallies__n {
+  display: inline-block;
+  min-width: 2.5em;
+  font-variant-numeric: tabular-nums;
+  font-weight: 600;
+  text-align: right;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
