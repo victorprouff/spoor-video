@@ -360,6 +360,50 @@ export const exportDetectionsCsv = (filter: GridFilter, path: string) =>
 export const copyVideos = (sequenceIds: string[], destDir: string) =>
   invoke<CopyReport>('copy_videos', { sequenceIds, destDir });
 
+export type VideoRow = {
+  id: string;
+  file_name: string;
+  file_path: string;
+  file_state: string;
+  trap_id: string;
+  trap_name: string;
+  sequence_id: string | null;
+  recorded_at: string | null;
+  date_manual: boolean;
+  duration_s: number | null;
+  file_size: number | null;
+  thumbnail_path: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  position_manual: boolean;
+  sun_phase: string | null;
+  state: string | null;
+  reviewed: boolean;
+  species: string[];
+  species_colors: (string | null)[];
+  tags: string[];
+  sequence_size: number;
+};
+
+export type VideoPage = {
+  rows: VideoRow[];
+  total: number;
+  total_duration_s: number;
+  total_bytes: number;
+  undated_total: number;
+  unplayable_total: number;
+};
+
+/** Les critères de la grille, plus ceux qui n'ont de sens qu'au fichier. */
+export type VideoFilter = GridFilter & {
+  file_states: string[];
+  undated: boolean | null;
+  unpositioned: boolean | null;
+  sort: string;
+};
+
+export const listVideos = (filter: VideoFilter) => invoke<VideoPage>('list_videos', { filter });
+
 export const gridPage = (filter: GridFilter) => invoke<GridPage>('grid_page', { filter });
 export const annotateSequences = (sequenceIds: string[], annotation: Annotation) =>
   invoke<AnnotateReport>('annotate_sequences', { sequenceIds, annotation });

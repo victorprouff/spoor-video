@@ -46,7 +46,7 @@ pub struct GridFilter {
 
 /// Les confiances, de la plus forte à la plus faible. Demander « probable » retient
 /// donc aussi le certain — un seuil, pas une égalité.
-fn confidence_at_least(level: &str) -> Vec<&'static str> {
+pub fn confidence_at_least(level: &str) -> Vec<&'static str> {
     match level {
         "certain" => vec!["certain"],
         "probable" => vec!["certain", "probable"],

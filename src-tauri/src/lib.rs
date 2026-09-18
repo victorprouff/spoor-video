@@ -14,6 +14,7 @@ mod sun;
 mod species;
 mod stats;
 mod traps;
+mod videos;
 
 use tauri::Manager;
 
@@ -134,6 +135,7 @@ pub fn run() {
             commands::position_groups,
             commands::set_video_positions,
             commands::pending_videos,
+            commands::list_videos,
         ])
         .run(tauri::generate_context!())
         .expect("erreur au lancement de l'application");

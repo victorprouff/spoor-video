@@ -277,6 +277,14 @@ répartition. ⚠️ **En comptages bruts uniquement** : sans effort de piégeag
 deux pièges ne sont pas comparables si l'un a tourné trois mois et l'autre trois semaines.
 La limite sera affichée dans l'interface plutôt que tue.
 
+**Vue vidéo.** Une ligne par fichier, avec ses propres critères : état du fichier
+(lisible / supprimée / disparue), sans date, sans position, et un tri chronologique dans
+les deux sens. Différence qui compte : **les filtres de date et d'heure portent sur la
+vidéo**, pas sur le début de son passage — chercher « entre 2 h et 3 h » doit rendre les
+déclenchements de cette tranche, et non les passages commencés avant minuit. Une vidéo
+hors séquence (sans date exploitable) y reste visible, là où les vues par séquence la
+laissent forcément de côté.
+
 **Recherche.** Filtres combinables : pièges, espèces (OU), tags (ET), confiance minimale,
 plage de dates, mois toutes années, plage horaire, jour/nuit, durée de séquence,
 état (`empty`, non dépouillé…), texte libre sur les notes.

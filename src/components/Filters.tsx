@@ -63,12 +63,25 @@ export function Filters({
   traps,
   species,
   tags,
+  extra,
+  extraCount = 0,
+  onClear,
+  durationLabel = 'Durée du passage',
+  durationHint = 'Une activité continue de deux heures se retrouve ici',
 }: {
   filter: GridFilter;
   onChange: (f: GridFilter) => void;
   traps: Trap[];
   species: Species[];
   tags: Tag[];
+  /** Critères propres à une vue, ajoutés au panneau déplié. */
+  extra?: React.ReactNode;
+  /** Combien de ces critères sont posés, pour que le compteur ne mente pas. */
+  extraCount?: number;
+  /** Remise à zéro complète, critères de la vue compris. */
+  onClear?: () => void;
+  durationLabel?: string;
+  durationHint?: string;
 }) {
   const [open, setOpen] = useState(false);
   const set = <K extends keyof GridFilter>(key: K, value: GridFilter[K]) =>
@@ -80,7 +93,7 @@ export function Filters({
     onChange({ ...filter, [key]: next, offset: 0 });
   };
 
-  const n = activeCount(filter);
+  const n = activeCount(filter) + extraCount;
 
   return (
     <section className="panel stack">
@@ -113,7 +126,9 @@ export function Filters({
         <button onClick={() => setOpen(!open)} className={n > 0 ? 'tab--on' : undefined}>
           Filtres{n > 0 ? ` (${n})` : ''}
         </button>
-        {n > 0 && <button onClick={() => onChange(EMPTY_FILTER)}>Effacer</button>}
+        {n > 0 && (
+          <button onClick={() => (onClear ? onClear() : onChange(EMPTY_FILTER))}>Effacer</button>
+        )}
       </div>
 
       {open && (
@@ -271,8 +286,10 @@ export function Filters({
             </p>
           </fieldset>
 
+          {extra}
+
           <fieldset>
-            <legend>Durée du passage</legend>
+            <legend>{durationLabel}</legend>
             <div className="row row--flush">
               <label className="inline">
                 Au moins
@@ -302,9 +319,7 @@ export function Filters({
                 />
                 min
               </label>
-              <span className="muted small">
-                Une activité continue de deux heures se retrouve ici
-              </span>
+              <span className="muted small">{durationHint}</span>
             </div>
           </fieldset>
         </div>

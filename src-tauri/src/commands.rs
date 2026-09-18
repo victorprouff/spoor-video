@@ -13,6 +13,7 @@ use crate::export::{self, CopyReport, ExportReport};
 use crate::grid::{self, GridFilter, GridPage};
 use crate::positions::{self, PositionGroup};
 use crate::stats::{self, Stats};
+use crate::videos::{self, VideoFilter, VideoPage};
 use crate::scan::{self, ScanReport};
 use crate::sequences::{self, RegroupReport, Sequence};
 use crate::species::{self, Species, SpeciesInput};
@@ -458,4 +459,11 @@ pub fn pending_videos(db: tauri::State<'_, Db>) -> Result<usize, DbError> {
         return Ok(0);
     };
     positions::pending_count(&conn, &PathBuf::from(root))
+}
+
+// --- Vue vidéo ------------------------------------------------------------
+
+#[tauri::command]
+pub fn list_videos(db: tauri::State<'_, Db>, filter: VideoFilter) -> Result<VideoPage, DbError> {
+    videos::page(&db.conn.lock().unwrap(), filter)
 }
