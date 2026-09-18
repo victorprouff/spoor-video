@@ -293,6 +293,22 @@ export type Stats = {
 
 export const stats = (filter: GridFilter) => invoke<Stats>('stats', { filter });
 
+export type ExportReport = { path: string; rows: number };
+export type CopyReport = {
+  dest: string;
+  copied: number;
+  unavailable: number;
+  errors: string[];
+  bytes: number;
+};
+
+export const exportSequencesCsv = (filter: GridFilter, path: string) =>
+  invoke<ExportReport>('export_sequences_csv', { filter, path });
+export const exportDetectionsCsv = (filter: GridFilter, path: string) =>
+  invoke<ExportReport>('export_detections_csv', { filter, path });
+export const copyVideos = (sequenceIds: string[], destDir: string) =>
+  invoke<CopyReport>('copy_videos', { sequenceIds, destDir });
+
 export const gridPage = (filter: GridFilter) => invoke<GridPage>('grid_page', { filter });
 export const annotateSequences = (sequenceIds: string[], annotation: Annotation) =>
   invoke<AnnotateReport>('annotate_sequences', { sequenceIds, annotation });

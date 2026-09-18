@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { listSpecies, listTags, listTraps, stats as fetchStats } from '../api';
 import type { GridFilter, Species, Stats as StatsData, Tag, Trap } from '../api';
 import { BarChart, SmallMultiples } from '../components/Charts';
+import { Export } from '../components/Export';
 import { EMPTY_FILTER, Filters } from '../components/Filters';
 import { formatDate, monthName } from '../format';
 
@@ -235,6 +236,8 @@ export function Stats({ onError }: { onError: (e: string | null) => void }) {
               </tbody>
             </table>
           </section>
+
+          <Export filter={filter} selection={[]} total={data.total_sequences} onError={onError} />
 
           <section className="panel stack">
             <h2>Par espèce</h2>

@@ -8,6 +8,7 @@ use tauri::Manager;
 
 use crate::annotations::{self, AnnotateReport, Annotation, Tag};
 use crate::db::{Db, DbError};
+use crate::export::{self, CopyReport, ExportReport};
 use crate::grid::{self, GridFilter, GridPage};
 use crate::stats::{self, Stats};
 use crate::scan::{self, ScanReport};
@@ -337,4 +338,40 @@ pub fn list_tags(db: tauri::State<'_, Db>) -> Result<Vec<Tag>, DbError> {
 #[tauri::command]
 pub fn stats(db: tauri::State<'_, Db>, filter: GridFilter) -> Result<Stats, DbError> {
     stats::compute(&db.conn.lock().unwrap(), filter)
+}
+
+// --- Exports --------------------------------------------------------------
+
+#[tauri::command]
+pub fn export_sequences_csv(
+    db: tauri::State<'_, Db>,
+    filter: GridFilter,
+    path: String,
+) -> Result<ExportReport, DbError> {
+    export::sequences_csv(&db.conn.lock().unwrap(), filter, &PathBuf::from(path))
+}
+
+#[tauri::command]
+pub fn export_detections_csv(
+    db: tauri::State<'_, Db>,
+    filter: GridFilter,
+    path: String,
+) -> Result<ExportReport, DbError> {
+    export::detections_csv(&db.conn.lock().unwrap(), filter, &PathBuf::from(path))
+}
+
+/// Copie les vidéos des séquences choisies. Bloquant : des vidéos pèsent lourd.
+#[tauri::command]
+pub async fn copy_videos(
+    app: tauri::AppHandle,
+    sequence_ids: Vec<String>,
+    dest_dir: String,
+) -> Result<CopyReport, DbError> {
+    tauri::async_runtime::spawn_blocking(move || {
+        let db = app.state::<Db>();
+        let conn = db.conn.lock().unwrap();
+        export::copy_videos(&conn, &sequence_ids, &PathBuf::from(dest_dir))
+    })
+    .await
+    .map_err(|e| DbError::Other(format!("copie interrompue : {e}")))?
 }

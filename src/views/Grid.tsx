@@ -21,6 +21,7 @@ import type {
   Trap,
 } from '../api';
 import { SUN_PHASES } from '../api';
+import { Export } from '../components/Export';
 import { EMPTY_FILTER, Filters } from '../components/Filters';
 import { formatDateTime, formatDuration } from '../format';
 import { Review } from './Review';
@@ -172,6 +173,13 @@ export function Grid({ onError }: { onError: (e: string | null) => void }) {
           </div>
         </section>
       )}
+
+      <Export
+        filter={filter}
+        selection={[...selected]}
+        total={page?.total ?? 0}
+        onError={onError}
+      />
 
       {selected.size > 0 && (
         <AnnotationBar count={selected.size} species={species} onApply={apply} onCancel={clear} />

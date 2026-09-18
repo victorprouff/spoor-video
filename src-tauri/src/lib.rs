@@ -1,6 +1,7 @@
 mod annotations;
 mod commands;
 mod db;
+mod export;
 mod grid;
 mod hash;
 mod media;
@@ -121,6 +122,9 @@ pub fn run() {
             commands::annotate_sequences,
             commands::list_tags,
             commands::stats,
+            commands::export_sequences_csv,
+            commands::export_detections_csv,
+            commands::copy_videos,
         ])
         .run(tauri::generate_context!())
         .expect("erreur au lancement de l'application");
@@ -134,5 +138,8 @@ pub mod testing {
     pub use crate::db::migrations::apply as apply_migrations;
     pub use crate::media::{available as media_available, init as media_init};
     pub use crate::scan::{scan, ScanReport};
+    pub use crate::annotations::{annotate, Annotation, SpeciesPick};
+    pub use crate::export::{copy_videos, detections_csv, sequences_csv};
+    pub use crate::grid::GridFilter;
     pub use crate::sequences::{list as list_sequences, Sequence};
 }

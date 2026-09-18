@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use rusqlite::Connection;
-use spoor_video_lib::testing::{apply_migrations, list_sequences, media_available, media_init, scan};
+use spoor_video_lib::testing::{annotate, apply_migrations, copy_videos, detections_csv, list_sequences, media_available, media_init, scan, sequences_csv, Annotation, GridFilter, SpeciesPick};
 
 /// Fabrique une vidéo de `seconds` secondes, unique par sa couleur.
 fn make_video(dest: &Path, seconds: f64, color: &str) {
@@ -301,4 +301,110 @@ fn la_passe_regroupe_en_sequences() {
     let r = scan(&f.conn, &f.root, &f.thumbs).unwrap();
     assert_eq!(r.sequences_built, 2);
     assert_eq!(list_sequences(&f.conn, None).unwrap().len(), 2);
+}
+
+#[test]
+fn indexe_annote_puis_exporte_de_bout_en_bout() {
+    ffmpeg_ou_echec();
+    let f = setup();
+    let trap_id = link(&f.conn, "Mare basse");
+    // Le piège a une position : les statistiques solaires et l'export en dépendent.
+    f.conn
+        .execute(
+            "UPDATE traps SET latitude = 47.32, longitude = 5.04, utc_offset_minutes = 60
+             WHERE id = ?1",
+            [&trap_id],
+        )
+        .unwrap();
+
+    for (i, minute) in [0i64, 2, 5].iter().enumerate() {
+        let at = chrono::DateTime::parse_from_rfc3339("2026-12-21T18:30:00Z").unwrap()
+            + chrono::Duration::minutes(*minute);
+        let dest = f.root.join(format!("Mare basse/IMG_{i}.mp4"));
+        std::fs::create_dir_all(dest.parent().unwrap()).unwrap();
+        let status = Command::new("ffmpeg")
+            .args(["-v", "quiet", "-y", "-f", "lavfi", "-i"])
+            .arg(format!("color=c=0x{i}0{i}0{i}0:s=320x240:d=1:r=10"))
+            .args(["-metadata", &format!("creation_time={}", at.to_rfc3339())])
+            .arg(&dest)
+            .status()
+            .unwrap();
+        assert!(status.success());
+    }
+
+    let report = scan(&f.conn, &f.root, &f.thumbs).unwrap();
+    assert_eq!(report.files_added, 3);
+    assert_eq!(report.sequences_built, 1, "trois déclenchements, un passage");
+
+    let sequence = list_sequences(&f.conn, None).unwrap()[0].id.clone();
+
+    // Une identification, avec une note contenant le séparateur CSV.
+    let species: String = f
+        .conn
+        .query_row("SELECT id FROM species WHERE common_name = 'Renard roux'", [], |r| {
+            r.get(0)
+        })
+        .unwrap();
+    let mut conn = f.conn;
+    annotate(
+        &mut conn,
+        &[sequence.clone()],
+        Annotation {
+            add_species: vec![SpeciesPick {
+                species_id: species,
+                confidence: "probable".into(),
+                count_min: Some(1),
+                count_max: Some(1),
+            }],
+            add_tags: vec!["crépuscule".into()],
+            notes: Some("passe de gauche à droite ; s'arrête".into()),
+            ..Default::default()
+        },
+    )
+    .unwrap();
+
+    // --- CSV des séquences ---------------------------------------------------
+    let dest = f._dir.path().join("sequences.csv");
+    let r = sequences_csv(&conn, GridFilter::default(), &dest).unwrap();
+    assert_eq!(r.rows, 1);
+
+    let text = std::fs::read_to_string(&dest).unwrap();
+    let header = text.lines().next().unwrap();
+    let row = text.lines().nth(1).unwrap();
+    assert!(header.contains("piege"));
+    assert!(row.contains("Mare basse"));
+    assert!(row.contains("Renard roux"));
+    assert!(row.contains("probable"));
+    assert!(row.contains("crépuscule"));
+    assert!(
+        row.contains("\"passe de gauche à droite ; s'arrête\""),
+        "la note contenant un point-virgule doit être encadrée : {row}"
+    );
+    assert!(
+        row.contains("night") || row.contains("dusk"),
+        "18 h 30 le 21 décembre est après le coucher : {row}"
+    );
+
+    // --- CSV des détections --------------------------------------------------
+    let dest = f._dir.path().join("detections.csv");
+    let r = detections_csv(&conn, GridFilter::default(), &dest).unwrap();
+    assert_eq!(r.rows, 1);
+    let text = std::fs::read_to_string(&dest).unwrap();
+    assert!(
+        text.lines().nth(1).unwrap().contains(";2026;12;18;"),
+        "année, mois et heure dépliés : {}",
+        text.lines().nth(1).unwrap()
+    );
+
+    // --- Copie des fichiers --------------------------------------------------
+    let out = f._dir.path().join("copies");
+    std::fs::create_dir_all(&out).unwrap();
+    let c = copy_videos(&conn, &[sequence], &out).unwrap();
+    assert_eq!(c.copied, 3);
+    assert!(c.bytes > 0);
+    assert_eq!(
+        std::fs::read_dir(&f.root.join("Mare basse")).unwrap().count(),
+        3,
+        "les originaux restent en place"
+    );
 }
