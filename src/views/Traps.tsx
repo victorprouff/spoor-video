@@ -10,6 +10,7 @@ import {
 } from '../api';
 import type { RootFolder, Trap, TrapInput } from '../api';
 import { Confirm } from '../components/Confirm';
+import { MapPicker } from '../components/MapPicker';
 import { formatDate } from '../format';
 
 const EMPTY: TrapInput = {
@@ -244,6 +245,12 @@ function TrapForm({
     <section className="panel stack">
       <h2>{isNew ? 'Nouveau piège' : `Modifier « ${value.name} »`}</h2>
 
+      <MapPicker
+        latitude={value.latitude}
+        longitude={value.longitude}
+        onChange={(lat, lng) => onChange({ ...value, latitude: lat, longitude: lng })}
+      />
+
       <div className="fields">
         <label>
           Nom
@@ -334,6 +341,11 @@ function TrapForm({
         montre toujours l’heure de la caméra. Il n’y a pas de changement d’heure automatique :
         une caméra qui suit l’heure d’été sera décrite à une heure près la moitié de l’année,
         ce qui ne se voit que sur les passages survenus juste au crépuscule.
+      </p>
+      <p className="muted small">
+        La position du piège sert de <strong>valeur par défaut</strong> aux vidéos indexées
+        ensuite. Déplacer un piège ne déplace jamais les captures déjà faites : chacune garde
+        la sienne, ajustable dans l’onglet Positions.
       </p>
       <p className="muted small">
         Un piège déplacé de plusieurs centaines de mètres est un nouveau piège, pas le même avec de

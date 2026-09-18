@@ -61,7 +61,7 @@ fn trap_by_folder(conn: &Connection) -> Result<HashMap<String, String>, DbError>
     Ok(map)
 }
 
-fn is_video(path: &Path) -> bool {
+pub fn is_video_path(path: &Path) -> bool {
     path.extension()
         .and_then(|e| e.to_str())
         .map(|e| VIDEO_EXTENSIONS.contains(&e.to_lowercase().as_str()))
@@ -113,15 +113,20 @@ pub fn scan(conn: &Connection, root: &Path, thumbs_dir: &Path) -> Result<ScanRep
         .into_iter()
         .filter_entry(|e| {
             // Les dossiers cachés et les rebuts macOS ne sont pas des vidéos.
-            !e.file_name()
-                .to_str()
-                .map(|n| n.starts_with('.') || n == "__MACOSX")
-                .unwrap_or(false)
+            // La racine elle-même est exemptée : elle peut très bien se trouver dans un
+            // dossier commençant par un point, et la filtrer viderait toute la passe
+            // sans rien signaler.
+            e.depth() == 0
+                || !e
+                    .file_name()
+                    .to_str()
+                    .map(|n| n.starts_with('.') || n == "__MACOSX")
+                    .unwrap_or(false)
         })
         .filter_map(|e| e.ok())
     {
         let path = entry.path();
-        if !entry.file_type().is_file() || !is_video(path) {
+        if !entry.file_type().is_file() || !is_video_path(path) {
             continue;
         }
         report.files_seen += 1;
@@ -278,11 +283,21 @@ fn index_one(
         .map_err(|e| log::warn!("vignette impossible pour {file_name} : {e}"))
         .ok();
 
+    // La position est copiée depuis le piège **au moment de l'indexation** : déplacer
+    // le piège plus tard ne doit pas déplacer rétroactivement cette capture (§3).
+    let (lat, lng, alt): (Option<f64>, Option<f64>, Option<f64>) = conn.query_row(
+        "SELECT latitude, longitude, altitude_m FROM traps WHERE id = ?1",
+        [trap_id],
+        |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+    )?;
+
     conn.execute(
         "INSERT INTO videos (id, file_path, file_name, file_size, content_hash, trap_id,
              recorded_at, duration_s, width, height, fps, thumbnail_path,
+             latitude, longitude, altitude_m,
              file_state, imported_at, created_at, updated_at)
-         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, 'present', ?13, ?13, ?13)",
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?14, ?15, ?16,
+                 'present', ?13, ?13, ?13)",
         params![
             id,
             file_path,
@@ -297,6 +312,9 @@ fn index_one(
             probe.fps,
             thumbnail_path,
             now,
+            lat,
+            lng,
+            alt,
         ],
     )?;
     report.files_added += 1;
@@ -357,10 +375,10 @@ mod tests {
 
     #[test]
     fn reconnait_les_extensions_video() {
-        assert!(is_video(Path::new("/a/IMG_0001.MP4")));
-        assert!(is_video(Path::new("/a/b.avi")));
-        assert!(!is_video(Path::new("/a/notes.txt")));
-        assert!(!is_video(Path::new("/a/sans-extension")));
+        assert!(is_video_path(Path::new("/a/IMG_0001.MP4")));
+        assert!(is_video_path(Path::new("/a/b.avi")));
+        assert!(!is_video_path(Path::new("/a/notes.txt")));
+        assert!(!is_video_path(Path::new("/a/sans-extension")));
     }
 
     #[test]

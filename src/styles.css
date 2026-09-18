@@ -942,3 +942,53 @@ input.tiny {
   margin: 10px 0;
   font-size: 0.92em;
 }
+
+/* --- Pastille et notification -------------------------------------------- */
+
+.pip {
+  display: inline-block;
+  min-width: 18px;
+  margin-left: 6px;
+  padding: 0 5px;
+  font-size: 0.72em;
+  font-weight: 600;
+  line-height: 17px;
+  text-align: center;
+  color: var(--accent-ink);
+  background: var(--accent);
+  border-radius: 9px;
+}
+
+.notice--new {
+  border-left: 3px solid var(--accent);
+}
+
+/* --- Carte --------------------------------------------------------------- */
+
+.map__canvas {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  /* Leaflet dessine ses tuiles en clair : on ne les assombrit pas, une carte
+     retouchée devient illisible. Seul le cadre suit le thème. */
+  background: var(--bg);
+}
+
+.map__marker span {
+  display: block;
+  width: 16px;
+  height: 16px;
+  background: var(--danger);
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 1px 4px rgb(0 0 0 / 45%);
+}
+
+/* Leaflet pose ses propres styles : on ne réaligne que ce qui jure avec le thème. */
+.leaflet-container {
+  font: inherit;
+}
+
+.leaflet-control-attribution {
+  font-size: 0.7em;
+}

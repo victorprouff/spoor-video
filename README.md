@@ -44,6 +44,12 @@ appliqués au démarrage, chacun dans sa transaction.
 
 **On n'édite jamais une migration déjà livrée** — on en ajoute une.
 
+## Réseau
+
+L'application fonctionne hors ligne, **sauf les fonds de carte** (OpenStreetMap), chargés
+à la demande quand une carte est affichée. Sans connexion, la carte reste grise et les
+coordonnées se saisissent au clavier.
+
 ## Avancement
 
 Étapes de `spec.md` §10 :

@@ -302,6 +302,28 @@ export type CopyReport = {
   bytes: number;
 };
 
+export type PositionGroup = {
+  trap_id: string;
+  trap_name: string;
+  latitude: number | null;
+  longitude: number | null;
+  video_count: number;
+  video_ids: string[];
+  first_at: string | null;
+  last_at: string | null;
+  any_manual: boolean;
+};
+
+export const positionGroups = (trapId: string | null, since: string | null) =>
+  invoke<PositionGroup[]>('position_groups', { trapId, since });
+export const setVideoPositions = (
+  videoIds: string[],
+  latitude: number | null,
+  longitude: number | null,
+  altitudeM: number | null,
+) => invoke<number>('set_video_positions', { videoIds, latitude, longitude, altitudeM });
+export const pendingVideos = () => invoke<number>('pending_videos');
+
 export type DeletePreview = {
   videos: number;
   present_files: number;

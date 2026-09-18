@@ -25,7 +25,8 @@ Philosophie reprise de Spoor, et non négociable : **léger et simple, pas de su
 
 | Sujet | Décision |
 |---|---|
-| Exécution | **100 % local**, mono-poste, mono-utilisateur. Aucun serveur, aucun compte, aucun réseau requis. |
+| Exécution | **100 % local**, mono-poste, mono-utilisateur. Aucun serveur, aucun compte. |
+| Réseau | **Une seule exception** : les fonds de carte OpenStreetMap. Sans connexion, la carte reste grise et les coordonnées restent saisissables au clavier. Tout le reste fonctionne hors ligne. |
 | Runtime | **Tauri** (cœur Rust, front React + TypeScript + Vite) |
 | Base | **SQLite**, un fichier unique dans le dossier de données de l'application |
 | Rangement | **Un dossier racine**, contenant **un dossier par caméra**. L'arborescence porte le rattachement au piège. |
@@ -57,8 +58,15 @@ C'est la leçon la plus importante de Spoor (`sites` / passages), appliquée ici
 - `notes`, `active`
 - `created_at`, `updated_at`, `deleted_at`
 
-Un piège déplacé de plusieurs centaines de mètres est **un nouveau piège**, pas le même
-avec de nouvelles coordonnées : sans quoi les statistiques par emplacement mentent.
+**La position du piège n'est qu'une valeur par défaut.** Elle est copiée sur chaque vidéo
+au moment de l'indexation ; ensuite la vidéo garde la sienne. Déplacer un piège n'a donc
+**aucun effet rétroactif** : les captures d'il y a deux ans restent là où elles ont été
+faites. C'est le même principe que `recorded_at` / `recorded_at_manual` — la donnée et la
+correction cohabitent, rien n'est réécrit dans le dos.
+
+⚠️ Conséquence à connaître : un piège déplacé garde son identité, donc la **comparaison
+entre emplacements** (§7) regroupe sous un même nom des positions différentes. Quand le
+déplacement est important, créer un nouveau piège reste plus juste.
 
 ### `videos` — le fichier, un par ligne
 
@@ -68,6 +76,8 @@ avec de nouvelles coordonnées : sans quoi les statistiques par emplacement ment
 - `recorded_at` — **date de la capture**, extraite de `ffprobe`
 - `recorded_at_manual` — correction éventuelle ; **la valeur d'origine n'est jamais écrasée**
 - `duration_s`, `width`, `height`, `fps`
+- `latitude`, `longitude`, `altitude_m` — **position propre à la capture**, copiée du
+  piège à l'indexation puis ajustable ; `position_manual` empêche toute réécriture
 - `thumbnail_path` — vignette extraite par ffmpeg, dans les données de l'application
 - `sequence_id`
 - `file_state` — `present` | `purged` | `missing` (voir §6)
@@ -307,8 +317,9 @@ Pas de responsive mobile : l'application est de bureau, sur un grand écran.
   reste tournera ; d'ici là, `traps.camera_name` et un champ `temperature_c` nullable
   attendent leur source.
 - **Hors-ligne, synchronisation, multi-appareils.** Sans objet : tout est local.
-- **Carte.** Quelques emplacements, pas des milliers de points. Une liste et des coordonnées
-  suffisent ; une carte pourra venir plus tard.
+- ~~**Carte.**~~ Faite : Leaflet et fonds OpenStreetMap, pour poser un point au clic dans
+  le formulaire de piège et dans l'ajustement des positions. C'est la seule fonction qui
+  demande une connexion, et son absence n'empêche pas de saisir des coordonnées.
 - **Pont vers Spoor.** Identifiants d'espèces et niveaux de confiance alignés dès maintenant
   pour que la passerelle soit simple le jour où elle sera utile.
 

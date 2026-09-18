@@ -11,6 +11,7 @@ use crate::db::{Db, DbError};
 use crate::deletions::{self, DeletePreview, DeleteReport, Trash};
 use crate::export::{self, CopyReport, ExportReport};
 use crate::grid::{self, GridFilter, GridPage};
+use crate::positions::{self, PositionGroup};
 use crate::stats::{self, Stats};
 use crate::scan::{self, ScanReport};
 use crate::sequences::{self, RegroupReport, Sequence};
@@ -415,4 +416,46 @@ pub fn delete_videos_without_trace(
     video_ids: Vec<String>,
 ) -> Result<DeleteReport, DbError> {
     deletions::delete_without_trace(&mut db.conn.lock().unwrap(), &video_ids, &Trash)
+}
+
+// --- Positions (migration 005) --------------------------------------------
+
+#[tauri::command]
+pub fn position_groups(
+    db: tauri::State<'_, Db>,
+    trap_id: Option<String>,
+    since: Option<String>,
+) -> Result<Vec<PositionGroup>, DbError> {
+    positions::groups(
+        &db.conn.lock().unwrap(),
+        trap_id.as_deref(),
+        since.as_deref(),
+    )
+}
+
+#[tauri::command]
+pub fn set_video_positions(
+    db: tauri::State<'_, Db>,
+    video_ids: Vec<String>,
+    latitude: Option<f64>,
+    longitude: Option<f64>,
+    altitude_m: Option<f64>,
+) -> Result<usize, DbError> {
+    positions::set_positions(
+        &db.conn.lock().unwrap(),
+        &video_ids,
+        latitude,
+        longitude,
+        altitude_m,
+    )
+}
+
+/// Pastille « des vidéos attendent » : volontairement bon marché, donc approximative.
+#[tauri::command]
+pub fn pending_videos(db: tauri::State<'_, Db>) -> Result<usize, DbError> {
+    let conn = db.conn.lock().unwrap();
+    let Some(root) = settings::get(&conn, settings::ROOT_PATH)? else {
+        return Ok(0);
+    };
+    positions::pending_count(&conn, &PathBuf::from(root))
 }

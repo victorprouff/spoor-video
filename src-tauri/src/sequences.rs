@@ -49,12 +49,26 @@ pub struct Sequence {
 /// Recalcule la position solaire de chaque séquence depuis les coordonnées de son piège.
 /// Une séquence dont le piège n'a pas de position reste à NULL : on ne devine pas.
 pub fn refresh_sun(conn: &Connection) -> Result<usize, DbError> {
+    // La position vient de la **première vidéo de la séquence**, pas du piège : un piège
+    // déplacé ne doit pas réécrire le lever et le coucher du soleil des captures
+    // passées (migration 005). Le piège ne sert plus que de repli, pour les séquences
+    // dont les vidéos n'ont pas de position.
     let rows: Vec<(String, String, f64, f64, i64)> = {
         let mut stmt = conn.prepare(
-            "SELECT s.id, s.started_at, t.latitude, t.longitude, t.utc_offset_minutes
-             FROM sequences s JOIN traps t ON t.id = s.trap_id
+            "SELECT s.id, s.started_at,
+                    COALESCE(v.latitude, t.latitude),
+                    COALESCE(v.longitude, t.longitude),
+                    t.utc_offset_minutes
+             FROM sequences s
+             JOIN traps t ON t.id = s.trap_id
+             LEFT JOIN videos v ON v.id = (
+                 SELECT v2.id FROM videos v2
+                  WHERE v2.sequence_id = s.id AND v2.deleted_at IS NULL
+                  ORDER BY COALESCE(v2.recorded_at_manual, v2.recorded_at), v2.file_name
+                  LIMIT 1)
              WHERE s.deleted_at IS NULL
-               AND t.latitude IS NOT NULL AND t.longitude IS NOT NULL",
+               AND COALESCE(v.latitude, t.latitude) IS NOT NULL
+               AND COALESCE(v.longitude, t.longitude) IS NOT NULL",
         )?;
         let rows = stmt.query_map([], |r| {
             Ok((r.get(0)?, r.get(1)?, r.get(2)?, r.get(3)?, r.get(4)?))
@@ -688,6 +702,81 @@ mod tests {
             )
             .unwrap();
         assert_eq!(count, 2, "aucune identification n'est perdue à la fusion");
+    }
+
+    #[test]
+    fn deplacer_un_piege_ne_deplace_pas_les_videos_deja_indexees() {
+        let conn = db();
+        conn.execute(
+            "UPDATE traps SET latitude = 47.32, longitude = 5.04, utc_offset_minutes = 60
+             WHERE id = 't1'",
+            [],
+        )
+        .unwrap();
+        // Une vidéo indexée alors que le piège était en Bourgogne.
+        conn.execute(
+            "INSERT INTO videos (id, file_path, file_name, content_hash, trap_id,
+                 recorded_at, latitude, longitude, imported_at, created_at, updated_at)
+             VALUES ('v1', '/a', 'a', 'h1', 't1', '2026-12-21T17:00:00Z', 47.32, 5.04,
+                     datetime('now'), datetime('now'), datetime('now'))",
+            [],
+        )
+        .unwrap();
+        regroup(&conn).unwrap();
+
+        let avant: (String, i64) = conn
+            .query_row(
+                "SELECT sun_phase, minutes_from_sunset FROM sequences",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
+
+        // Le piège est déplacé très loin — en Laponie.
+        conn.execute(
+            "UPDATE traps SET latitude = 68.0, longitude = 20.0 WHERE id = 't1'",
+            [],
+        )
+        .unwrap();
+        regroup(&conn).unwrap();
+
+        let apres: (String, i64) = conn
+            .query_row(
+                "SELECT sun_phase, minutes_from_sunset FROM sequences",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
+
+        assert_eq!(
+            avant, apres,
+            "une capture d'il y a deux ans ne doit pas se retrouver en Laponie \
+             parce que le piège a été déplacé aujourd'hui"
+        );
+    }
+
+    #[test]
+    fn une_video_sans_position_propre_se_rabat_sur_le_piege() {
+        let conn = db();
+        conn.execute(
+            "UPDATE traps SET latitude = 47.32, longitude = 5.04 WHERE id = 't1'",
+            [],
+        )
+        .unwrap();
+        conn.execute(
+            "INSERT INTO videos (id, file_path, file_name, content_hash, trap_id,
+                 recorded_at, imported_at, created_at, updated_at)
+             VALUES ('v1', '/a', 'a', 'h1', 't1', '2026-12-21T17:00:00Z',
+                     datetime('now'), datetime('now'), datetime('now'))",
+            [],
+        )
+        .unwrap();
+        regroup(&conn).unwrap();
+
+        let phase: Option<String> = conn
+            .query_row("SELECT sun_phase FROM sequences", [], |r| r.get(0))
+            .unwrap();
+        assert!(phase.is_some(), "le piège sert de repli quand la vidéo n'a rien");
     }
 
     #[test]

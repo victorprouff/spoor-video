@@ -6,6 +6,7 @@ mod export;
 mod grid;
 mod hash;
 mod media;
+mod positions;
 mod scan;
 mod sequences;
 mod settings;
@@ -130,6 +131,9 @@ pub fn run() {
             commands::delete_videos_keeping_trace,
             commands::delete_videos_without_trace,
             commands::videos_of_sequences,
+            commands::position_groups,
+            commands::set_video_positions,
+            commands::pending_videos,
         ])
         .run(tauri::generate_context!())
         .expect("erreur au lancement de l'application");

@@ -4,11 +4,20 @@ import { open } from '@tauri-apps/plugin-dialog';
 import { appState, linkFolderToTrap, scanRoot, setRootPath } from '../api';
 import type { AppState, ScanReport } from '../api';
 import { formatDateTime } from '../format';
+import { Positions } from './Positions';
 
-export function Scan({ onError }: { onError: (e: string | null) => void }) {
+export function Scan({
+  onError,
+  onScanned,
+}: {
+  onError: (e: string | null) => void;
+  onScanned?: () => void;
+}) {
   const [state, setState] = useState<AppState | null>(null);
   const [report, setReport] = useState<ScanReport | null>(null);
   const [scanning, setScanning] = useState(false);
+  const [scannedAt, setScannedAt] = useState<string | null>(null);
+  const [checkPositions, setCheckPositions] = useState(false);
 
   const refresh = useCallback(async () => {
     try {
@@ -39,14 +48,17 @@ export function Scan({ onError }: { onError: (e: string | null) => void }) {
     setScanning(true);
     onError(null);
     try {
-      setReport(await scanRoot());
+      const result = await scanRoot();
+      setReport(result);
+      setScannedAt(new Date().toISOString());
       await refresh();
+      onScanned?.();
     } catch (e) {
       onError(String(e));
     } finally {
       setScanning(false);
     }
-  }, [onError, refresh]);
+  }, [onError, refresh, onScanned]);
 
   const linkFolder = async (folder: string, trapId: string | null) => {
     onError(null);
@@ -100,6 +112,24 @@ export function Scan({ onError }: { onError: (e: string | null) => void }) {
       </section>
 
       {report && <Report report={report} traps={state?.traps ?? []} onLink={linkFolder} />}
+
+      {report && report.files_added > 0 && !checkPositions && (
+        <section className="panel">
+          <div className="row row--flush">
+            <span>
+              {report.files_added} vidéo(s) ajoutée(s) ont pris la position de leur piège.
+            </span>
+            <span className="app__spacer" />
+            <button className="primary" onClick={() => setCheckPositions(true)}>
+              Vérifier leur position
+            </button>
+          </div>
+        </section>
+      )}
+
+      {checkPositions && scannedAt && (
+        <Positions onError={onError} since={scannedAt} onDone={() => undefined} />
+      )}
     </div>
   );
 }

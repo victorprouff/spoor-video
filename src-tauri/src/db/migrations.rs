@@ -28,6 +28,11 @@ const MIGRATIONS: &[(i64, &str, &str)] = &[
         "sun_phase",
         include_str!("../../migrations/004_sun_phase.sql"),
     ),
+    (
+        5,
+        "video_position",
+        include_str!("../../migrations/005_video_position.sql"),
+    ),
 ];
 
 pub fn apply(conn: &Connection) -> Result<(), DbError> {
