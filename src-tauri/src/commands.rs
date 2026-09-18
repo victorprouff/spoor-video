@@ -8,15 +8,9 @@ use tauri::Manager;
 
 use crate::db::{Db, DbError};
 use crate::scan::{self, ScanReport};
+use crate::species::{self, Species, SpeciesInput};
+use crate::traps::{self, Trap, TrapInput};
 use crate::{media, settings};
-
-#[derive(serde::Serialize)]
-pub struct Trap {
-    id: String,
-    name: String,
-    folder_name: Option<String>,
-    video_count: i64,
-}
 
 #[derive(serde::Serialize)]
 pub struct AppState {
@@ -33,26 +27,10 @@ pub struct AppState {
 pub fn app_state(db: tauri::State<'_, Db>) -> Result<AppState, DbError> {
     let conn = db.conn.lock().unwrap();
 
-    let mut stmt = conn.prepare(
-        "SELECT t.id, t.name, t.folder_name,
-                (SELECT COUNT(*) FROM videos v WHERE v.trap_id = t.id AND v.deleted_at IS NULL)
-         FROM traps t WHERE t.deleted_at IS NULL ORDER BY t.name",
-    )?;
-    let traps = stmt
-        .query_map([], |r| {
-            Ok(Trap {
-                id: r.get(0)?,
-                name: r.get(1)?,
-                folder_name: r.get(2)?,
-                video_count: r.get(3)?,
-            })
-        })?
-        .collect::<Result<Vec<_>, _>>()?;
-
     Ok(AppState {
         root_path: settings::get(&conn, settings::ROOT_PATH)?,
         ffmpeg_available: media::available(),
-        traps,
+        traps: traps::list(&conn)?,
         videos_count: conn.query_row(
             "SELECT COUNT(*) FROM videos WHERE deleted_at IS NULL",
             [],
@@ -144,4 +122,104 @@ pub async fn scan_root(app: tauri::AppHandle) -> Result<ScanReport, DbError> {
     })
     .await
     .map_err(|e| DbError::Other(format!("passe interrompue : {e}")))?
+}
+
+// --- Pièges ---------------------------------------------------------------
+
+#[tauri::command]
+pub fn list_traps(db: tauri::State<'_, Db>) -> Result<Vec<Trap>, DbError> {
+    traps::list(&db.conn.lock().unwrap())
+}
+
+#[tauri::command]
+pub fn create_trap(db: tauri::State<'_, Db>, input: TrapInput) -> Result<String, DbError> {
+    traps::create(&db.conn.lock().unwrap(), input)
+}
+
+#[tauri::command]
+pub fn update_trap(
+    db: tauri::State<'_, Db>,
+    id: String,
+    input: TrapInput,
+) -> Result<(), DbError> {
+    traps::update(&db.conn.lock().unwrap(), &id, input)
+}
+
+#[tauri::command]
+pub fn delete_trap(db: tauri::State<'_, Db>, id: String) -> Result<(), DbError> {
+    traps::delete(&db.conn.lock().unwrap(), &id)
+}
+
+/// Les dossiers de premier niveau présents sous la racine, avec ce à quoi ils sont
+/// rattachés — pour rattacher sans avoir à relancer une passe.
+#[tauri::command]
+pub fn list_root_folders(db: tauri::State<'_, Db>) -> Result<Vec<RootFolder>, DbError> {
+    let conn = db.conn.lock().unwrap();
+    let Some(root) = settings::get(&conn, settings::ROOT_PATH)? else {
+        return Ok(Vec::new());
+    };
+
+    let mut linked = std::collections::HashMap::new();
+    {
+        let mut stmt = conn.prepare(
+            "SELECT folder_name, name FROM traps
+             WHERE folder_name IS NOT NULL AND deleted_at IS NULL",
+        )?;
+        let rows = stmt.query_map([], |r| Ok((r.get::<_, String>(0)?, r.get::<_, String>(1)?)))?;
+        for row in rows {
+            let (folder, trap) = row?;
+            linked.insert(folder, trap);
+        }
+    }
+
+    let mut folders = Vec::new();
+    let entries = std::fs::read_dir(&root)
+        .map_err(|e| DbError::Other(format!("racine illisible : {e}")))?;
+    for entry in entries.flatten() {
+        if !entry.path().is_dir() {
+            continue;
+        }
+        let name = entry.file_name().to_string_lossy().to_string();
+        if name.starts_with('.') {
+            continue;
+        }
+        folders.push(RootFolder {
+            trap_name: linked.get(&name).cloned(),
+            name,
+        });
+    }
+    folders.sort_by(|a, b| a.name.cmp(&b.name));
+    Ok(folders)
+}
+
+#[derive(serde::Serialize)]
+pub struct RootFolder {
+    pub name: String,
+    pub trap_name: Option<String>,
+}
+
+// --- Espèces --------------------------------------------------------------
+
+#[tauri::command]
+pub fn list_species(db: tauri::State<'_, Db>) -> Result<Vec<Species>, DbError> {
+    species::list(&db.conn.lock().unwrap())
+}
+
+#[tauri::command]
+pub fn create_species(db: tauri::State<'_, Db>, input: SpeciesInput) -> Result<String, DbError> {
+    species::create(&db.conn.lock().unwrap(), input)
+}
+
+#[tauri::command]
+pub fn update_species(
+    db: tauri::State<'_, Db>,
+    id: String,
+    input: SpeciesInput,
+) -> Result<(), DbError> {
+    species::update(&db.conn.lock().unwrap(), &id, input)
+}
+
+#[tauri::command]
+pub fn delete_species(db: tauri::State<'_, Db>, id: String) -> Result<(), DbError> {
+    species::delete(&db.conn.lock().unwrap(), &id)
 }

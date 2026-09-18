@@ -49,7 +49,7 @@ appliqués au démarrage, chacun dans sa transaction.
 
 - [x] 1. Squelette Tauri + SQLite, migrations au boot, conventions CSS
 - [x] 2. Indexation (parcours, empreinte, `ffprobe`, vignettes)
-- [ ] 3. Pièges et référentiel d'espèces
+- [x] 3. Pièges et référentiel d'espèces
 - [ ] 4. Séquences : regroupement, scission, fusion
 - [ ] 5. Vue grille et annotation en masse
 - [ ] 5b. Suppressions (corbeille, trace conservée, `missing`)

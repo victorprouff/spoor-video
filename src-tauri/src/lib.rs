@@ -4,6 +4,8 @@ mod hash;
 mod media;
 mod scan;
 mod settings;
+mod species;
+mod traps;
 
 use tauri::Manager;
 
@@ -67,6 +69,15 @@ pub fn run() {
             commands::set_root_path,
             commands::link_folder_to_trap,
             commands::scan_root,
+            commands::list_traps,
+            commands::create_trap,
+            commands::update_trap,
+            commands::delete_trap,
+            commands::list_root_folders,
+            commands::list_species,
+            commands::create_species,
+            commands::update_species,
+            commands::delete_species,
         ])
         .run(tauri::generate_context!())
         .expect("erreur au lancement de l'application");
