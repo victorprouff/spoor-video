@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { pendingVideos } from './api';
+import type { PendingReport } from './api';
 import { useTheme } from './theme';
 import { Grid } from './views/Grid';
 import { Scan } from './views/Scan';
@@ -25,15 +26,15 @@ export default function App() {
   // L'application s'ouvre sur ce qu'elle a à dire, pas sur ce qu'il reste à faire.
   const [tab, setTab] = useState<Tab>('stats');
   const [error, setError] = useState<string | null>(null);
-  const [pending, setPending] = useState(0);
+  const [pending, setPending] = useState<PendingReport | null>(null);
   const [dismissed, setDismissed] = useState(false);
 
   const checkPending = useCallback(() => {
     pendingVideos()
-      .then((n) => {
-        setPending(n);
+      .then((r) => {
+        setPending(r);
         // Un nouveau lot rouvre la notification, même si le précédent a été écarté.
-        if (n === 0) setDismissed(false);
+        if (r.new_files === 0) setDismissed(false);
       })
       .catch(() => undefined);
   }, []);
@@ -68,7 +69,9 @@ export default function App() {
               onClick={() => go(t.id)}
             >
               {t.label}
-              {t.id === 'scan' && pending > 0 && <span className="pip">{pending}</span>}
+              {t.id === 'scan' && !!pending?.new_files && (
+                <span className="pip">{pending.new_files}</span>
+              )}
             </button>
           ))}
         </nav>
@@ -77,14 +80,15 @@ export default function App() {
       </header>
 
       <main className="app__main stack">
-        {pending > 0 && !dismissed && tab !== 'scan' && (
+        {!!pending?.new_files && !dismissed && tab !== 'scan' && (
           <div className="panel notice notice--new">
             <div className="row row--flush">
               <span>
                 <strong>
-                  {pending} fichier{pending > 1 ? 's' : ''} vidéo
+                  {pending.new_files} fichier{pending.new_files > 1 ? 's' : ''} vidéo
                 </strong>{' '}
-                {pending > 1 ? 'attendent' : 'attend'} d’être indexé{pending > 1 ? 's' : ''}.
+                {pending.new_files > 1 ? 'attendent' : 'attend'} d’être indexé
+                {pending.new_files > 1 ? 's' : ''}.
               </span>
               <span className="app__spacer" />
               <button className="primary" onClick={() => go('scan')}>
@@ -94,7 +98,7 @@ export default function App() {
             </div>
             <p className="muted small">
               Compté d’après les chemins connus, sans lire les fichiers : une vidéo simplement
-              renommée y apparaît comme nouvelle. La passe d’indexation rétablira le compte exact.
+              renommée y apparaît comme nouvelle. La passe rétablira le compte exact.
             </p>
           </div>
         )}

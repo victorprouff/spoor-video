@@ -216,6 +216,12 @@ fn index_one(
         )
         .optional()?;
     if purged.is_some() {
+        // On note où le fichier se trouve aujourd'hui : la pastille pourra le
+        // reconnaître sans le lire, et cesser de l'annoncer comme nouveau.
+        conn.execute(
+            "UPDATE purged_videos SET file_path = ?2 WHERE content_hash = ?1",
+            params![content_hash, path.display().to_string()],
+        )?;
         report.files_repurged += 1;
         return Ok(None);
     }

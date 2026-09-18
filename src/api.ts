@@ -304,7 +304,24 @@ export const setVideoPositions = (
   longitude: number | null,
   altitudeM: number | null,
 ) => invoke<number>('set_video_positions', { videoIds, latitude, longitude, altitudeM });
-export const pendingVideos = () => invoke<number>('pending_videos');
+export type PendingReport = {
+  new_files: number;
+  unlinked: number;
+  unlinked_folders: string[];
+  discarded: number;
+};
+
+export type DiscardedFile = {
+  content_hash: string;
+  file_name: string;
+  file_path: string;
+  purged_at: string;
+};
+
+export const pendingVideos = () => invoke<PendingReport>('pending_videos');
+export const discardedFiles = () => invoke<DiscardedFile[]>('discarded_files');
+export const restoreDiscarded = (contentHash: string) =>
+  invoke<void>('restore_discarded', { contentHash });
 
 export type DeletePreview = {
   videos: number;

@@ -11,6 +11,7 @@ use crate::db::{Db, DbError};
 use crate::deletions::{self, DeletePreview, DeleteReport, Trash};
 use crate::export::{self, CopyReport, ExportReport};
 use crate::grid::{self, GridFilter, GridPage};
+use crate::pending::{self, DiscardedFile, PendingReport};
 use crate::positions;
 use crate::stats::{self, Stats};
 use crate::videos::{self, VideoFilter, VideoPage};
@@ -434,14 +435,25 @@ pub fn set_video_positions(
     )
 }
 
-/// Pastille « des vidéos attendent » : volontairement bon marché, donc approximative.
+/// Pastille « des vidéos attendent ». Elle dit ce que la passe ferait vraiment.
 #[tauri::command]
-pub fn pending_videos(db: tauri::State<'_, Db>) -> Result<usize, DbError> {
+pub fn pending_videos(db: tauri::State<'_, Db>) -> Result<PendingReport, DbError> {
     let conn = db.conn.lock().unwrap();
     let Some(root) = settings::get(&conn, settings::ROOT_PATH)? else {
-        return Ok(0);
+        return Ok(PendingReport::default());
     };
-    positions::pending_count(&conn, &PathBuf::from(root))
+    pending::report(&conn, &PathBuf::from(root))
+}
+
+/// Les vidéos écartées sans trace dont le fichier est revenu sur le disque.
+#[tauri::command]
+pub fn discarded_files(db: tauri::State<'_, Db>) -> Result<Vec<DiscardedFile>, DbError> {
+    pending::discarded_files(&db.conn.lock().unwrap())
+}
+
+#[tauri::command]
+pub fn restore_discarded(db: tauri::State<'_, Db>, content_hash: String) -> Result<(), DbError> {
+    pending::restore(&db.conn.lock().unwrap(), &content_hash)
 }
 
 // --- Vue vidéo ------------------------------------------------------------

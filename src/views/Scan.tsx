@@ -1,8 +1,16 @@
 import { useCallback, useEffect, useState } from 'react';
 import { open } from '@tauri-apps/plugin-dialog';
 
-import { appState, linkFolderToTrap, scanRoot, setRootPath } from '../api';
-import type { AppState, ScanReport } from '../api';
+import {
+  appState,
+  discardedFiles,
+  linkFolderToTrap,
+  pendingVideos,
+  restoreDiscarded,
+  scanRoot,
+  setRootPath,
+} from '../api';
+import type { AppState, DiscardedFile, PendingReport, ScanReport } from '../api';
 import { formatDateTime } from '../format';
 
 export function Scan({
@@ -15,14 +23,29 @@ export function Scan({
   const [state, setState] = useState<AppState | null>(null);
   const [report, setReport] = useState<ScanReport | null>(null);
   const [scanning, setScanning] = useState(false);
+  const [pending, setPending] = useState<PendingReport | null>(null);
+  const [discarded, setDiscarded] = useState<DiscardedFile[]>([]);
 
   const refresh = useCallback(async () => {
     try {
       setState(await appState());
+      setPending(await pendingVideos());
+      setDiscarded(await discardedFiles());
     } catch (e) {
       onError(String(e));
     }
   }, [onError]);
+
+  const restore = async (hash: string) => {
+    onError(null);
+    try {
+      await restoreDiscarded(hash);
+      await refresh();
+      onScanned?.();
+    } catch (e) {
+      onError(String(e));
+    }
+  };
 
   useEffect(() => {
     void refresh();
@@ -105,7 +128,64 @@ export function Scan({
           Toute vidéo présente sous la racine et absente de la base est en attente de
           catégorisation. Une passe est rejouable sans dommage.
         </p>
+
+        {pending && (pending.new_files > 0 || pending.unlinked > 0 || pending.discarded > 0) && (
+          <ul className="tallies">
+            <li className={pending.new_files ? undefined : 'muted'}>
+              <span className="tallies__n">{pending.new_files}</span> à indexer
+            </li>
+            <li className={pending.unlinked ? undefined : 'muted'}>
+              <span className="tallies__n">{pending.unlinked}</span> dans un dossier non rattaché
+            </li>
+            <li className={pending.discarded ? undefined : 'muted'}>
+              <span className="tallies__n">{pending.discarded}</span> écartée(s) et revenue(s)
+            </li>
+          </ul>
+        )}
+
+        {pending && pending.unlinked > 0 && (
+          <p className="muted small">
+            Rien ne sera importé de {pending.unlinked_folders.map((f) => `« ${f} »`).join(', ')}{' '}
+            tant qu’un piège ne réclame pas ces dossiers — voir l’onglet Pièges.
+          </p>
+        )}
       </section>
+
+      {discarded.length > 0 && (
+        <section className="panel stack">
+          <h2>Vidéos écartées, de retour sur le disque</h2>
+          <p className="muted small">
+            Ces vidéos ont été supprimées <strong>sans trace</strong>, et leur fichier est de
+            nouveau là — restauré depuis la corbeille, ou resynchronisé si la racine vit dans un
+            dossier synchronisé. L’indexation les ignore volontairement : c’est ce qui évite que
+            réimporter une carte SD fasse revenir les fausses déclenches. Si l’une d’elles a été
+            écartée par erreur, réintègre-la.
+          </p>
+          <table className="table">
+            <thead>
+              <tr>
+                <th>Fichier</th>
+                <th>Écartée le</th>
+                <th />
+              </tr>
+            </thead>
+            <tbody>
+              {discarded.map((d) => (
+                <tr key={d.content_hash}>
+                  <td className="mono small">
+                    {d.file_name}
+                    <div className="muted small">{d.file_path}</div>
+                  </td>
+                  <td className="muted small">{formatDateTime(d.purged_at)}</td>
+                  <td className="row--actions">
+                    <button onClick={() => restore(d.content_hash)}>Réintégrer</button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </section>
+      )}
 
       {report && <Report report={report} traps={state?.traps ?? []} onLink={linkFolder} />}
 

@@ -238,8 +238,15 @@ Deux garde-fous, parce que c'est la seule opération vraiment irréversible :
 - le fichier est mis à la **corbeille du système**, pas effacé — récupérable tant que je
   n'ai pas vidé la corbeille ;
 - l'empreinte est enregistrée dans **`purged_videos`** (`content_hash`, `file_name`,
-  `purged_at`). Sans cela, réimporter la même carte SD — que je n'efface pas forcément —
-  ferait **revenir toutes les fausses déclenches déjà écartées**, une par une, à chaque passe.
+  `purged_at`, `file_path`). Sans cela, réimporter la même carte SD — que je n'efface pas
+  forcément — ferait **revenir toutes les fausses déclenches déjà écartées**, une par une,
+  à chaque passe.
+
+⚠️ Un fichier écarté sans trace peut revenir sur le disque : restauré depuis la corbeille,
+ou **resynchronisé par un client cloud** quand la racine vit dans un dossier synchronisé
+(kDrive, iCloud, Dropbox). L'indexation l'ignore alors indéfiniment — c'est voulu — et
+l'écran d'indexation le dit, avec un bouton **Réintégrer** pour revenir sur le refus.
+Sans cette porte de sortie, une vidéo écartée par erreur serait perdue pour l'application.
 
 ### b. Supprimer en gardant la trace — le passage humain
 

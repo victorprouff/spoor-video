@@ -6,6 +6,7 @@ mod export;
 mod grid;
 mod hash;
 mod media;
+mod pending;
 mod positions;
 mod scan;
 mod sequences;
@@ -135,6 +136,8 @@ pub fn run() {
             commands::apply_trap_position,
             commands::set_video_positions,
             commands::pending_videos,
+            commands::discarded_files,
+            commands::restore_discarded,
             commands::list_videos,
         ])
         .run(tauri::generate_context!())
@@ -150,7 +153,9 @@ pub mod testing {
     pub use crate::media::{available as media_available, init as media_init};
     pub use crate::scan::{scan, ScanReport};
     pub use crate::annotations::{annotate, Annotation, SpeciesPick};
+    pub use crate::deletions::{delete_without_trace as purge, Disposer};
     pub use crate::export::{copy_videos, detections_csv, sequences_csv};
     pub use crate::grid::GridFilter;
+    pub use crate::pending::report as pending_report;
     pub use crate::sequences::{list as list_sequences, Sequence};
 }

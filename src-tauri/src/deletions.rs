@@ -243,7 +243,7 @@ pub fn delete_without_trace(
     }
 
     let now = Utc::now().to_rfc3339();
-    let mut disposed: Vec<(String, String)> = Vec::new(); // (id, empreinte)
+    let mut disposed: Vec<(String, String, String)> = Vec::new(); // (id, empreinte, chemin)
 
     for (id, file_path, file_name, _, state, _) in &rows {
         if state == "present" {
@@ -262,21 +262,21 @@ pub fn delete_without_trace(
             [id],
             |r| r.get(0),
         )?;
-        disposed.push((id.clone(), hash));
+        disposed.push((id.clone(), hash, file_path.clone()));
     }
 
     // La mémoire du refus et la suppression de la ligne vont ensemble : si l'une passe
     // sans l'autre, la fausse déclenche revient à la passe suivante.
     let tx = conn.transaction()?;
-    for (id, hash) in &disposed {
+    for (id, hash, file_path) in &disposed {
         let file_name: String =
             tx.query_row("SELECT file_name FROM videos WHERE id = ?1", [id], |r| {
                 r.get(0)
             })?;
         tx.execute(
-            "INSERT OR IGNORE INTO purged_videos (content_hash, file_name, purged_at)
-             VALUES (?1, ?2, ?3)",
-            params![hash, file_name, now],
+            "INSERT OR IGNORE INTO purged_videos (content_hash, file_name, purged_at, file_path)
+             VALUES (?1, ?2, ?3, ?4)",
+            params![hash, file_name, now, file_path],
         )?;
         tx.execute("DELETE FROM videos WHERE id = ?1", [id])?;
         report.rows_removed += 1;

@@ -51,48 +51,67 @@ pub fn set_positions(
     Ok(changed)
 }
 
-/// Combien de fichiers vidéo sont sous la racine sans être connus de la base.
+/// Combien de vidéos d'un piège prendraient sa position actuelle.
 ///
-/// Volontairement **approximatif et bon marché** : aucun calcul d'empreinte, aucune
-/// lecture des métadonnées, seulement une comparaison de chemins. C'est une pastille
-/// de notification, pas un inventaire — une vidéo simplement renommée y apparaît comme
-/// nouvelle, et la passe d'indexation rétablira la vérité.
-pub fn pending_count(conn: &Connection, root: &std::path::Path) -> Result<usize, DbError> {
-    use std::collections::HashSet;
-
-    if !root.is_dir() {
-        return Ok(0);
-    }
-
-    let known: HashSet<String> = {
-        let mut stmt = conn.prepare("SELECT file_path FROM videos WHERE deleted_at IS NULL")?;
-        let rows = stmt.query_map([], |r| r.get::<_, String>(0))?;
-        rows.collect::<Result<_, _>>()?
+/// `include_manual` dit s'il faut aussi réécrire celles dont la position a été choisie
+/// à la main. Par défaut non : une correction manuelle est une décision, et une action
+/// de masse ne doit pas l'effacer sans qu'on l'ait demandé.
+pub fn trap_position_candidates(
+    conn: &Connection,
+    trap_id: &str,
+    include_manual: bool,
+) -> Result<i64, DbError> {
+    let extra = if include_manual {
+        ""
+    } else {
+        " AND position_manual = 0"
     };
+    Ok(conn.query_row(
+        &format!(
+            "SELECT COUNT(*) FROM videos
+             WHERE trap_id = ?1 AND deleted_at IS NULL{extra}"
+        ),
+        [trap_id],
+        |r| r.get(0),
+    )?)
+}
 
-    let mut count = 0;
-    for entry in walkdir::WalkDir::new(root)
-        .follow_links(false)
-        .into_iter()
-        .filter_entry(|e| {
-            // Même exemption de la racine que dans la passe d'indexation.
-            e.depth() == 0
-                || !e
-                    .file_name()
-                    .to_str()
-                    .map(|n| n.starts_with('.') || n == "__MACOSX")
-                    .unwrap_or(false)
-        })
-        .filter_map(|e| e.ok())
-    {
-        if !entry.file_type().is_file() || !crate::scan::is_video_path(entry.path()) {
-            continue;
-        }
-        if !known.contains(&entry.path().display().to_string()) {
-            count += 1;
-        }
+/// Applique la position actuelle du piège à ses vidéos déjà indexées.
+///
+/// Sert au cas courant : on renseigne les coordonnées d'un piège **après** avoir importé
+/// ses vidéos. Sans cela, celles-ci resteraient sans position pour toujours, et ni le
+/// rythme solaire ni le filtre jour/nuit ne fonctionneraient pour elles.
+pub fn apply_trap_position(
+    conn: &Connection,
+    trap_id: &str,
+    include_manual: bool,
+) -> Result<usize, DbError> {
+    let (lat, lng, alt): (Option<f64>, Option<f64>, Option<f64>) = conn.query_row(
+        "SELECT latitude, longitude, altitude_m FROM traps WHERE id = ?1 AND deleted_at IS NULL",
+        [trap_id],
+        |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
+    )?;
+    if lat.is_none() || lng.is_none() {
+        return Err(DbError::Other(
+            "ce piège n'a pas de coordonnées : les renseigner d'abord".into(),
+        ));
     }
-    Ok(count)
+
+    let extra = if include_manual {
+        ""
+    } else {
+        " AND position_manual = 0"
+    };
+    let changed = conn.execute(
+        &format!(
+            "UPDATE videos SET latitude = ?2, longitude = ?3, altitude_m = ?4, updated_at = ?5
+             WHERE trap_id = ?1 AND deleted_at IS NULL{extra}"
+        ),
+        params![trap_id, lat, lng, alt, Utc::now().to_rfc3339()],
+    )?;
+
+    sequences::refresh_sun(conn)?;
+    Ok(changed)
 }
 
 #[cfg(test)]
@@ -190,100 +209,4 @@ mod tests {
         assert!(set_positions(&conn, &["v1".into()], Some(120.0), Some(5.0), None).is_err());
     }
 
-    #[test]
-    fn compte_les_videos_pas_encore_indexees() {
-        let conn = db();
-        let dir = tempfile::tempdir().unwrap();
-        let root = dir.path();
-        std::fs::create_dir_all(root.join("Mare basse")).unwrap();
-        std::fs::write(root.join("Mare basse/a.mp4"), b"x").unwrap();
-        std::fs::write(root.join("Mare basse/b.mp4"), b"x").unwrap();
-        std::fs::write(root.join("Mare basse/notes.txt"), b"x").unwrap();
-
-        assert_eq!(pending_count(&conn, root).unwrap(), 2, "le .txt n'est pas une vidéo");
-
-        // Une fois l'une connue, il n'en reste qu'une.
-        conn.execute(
-            "INSERT INTO videos (id, file_path, file_name, content_hash, trap_id,
-                 imported_at, created_at, updated_at)
-             VALUES ('v1', ?1, 'a.mp4', 'h1', 't1',
-                     datetime('now'), datetime('now'), datetime('now'))",
-            params![root.join("Mare basse/a.mp4").display().to_string()],
-        )
-        .unwrap();
-        assert_eq!(pending_count(&conn, root).unwrap(), 1);
-    }
-
-    #[test]
-    fn une_racine_absente_ne_fait_pas_echouer_la_pastille() {
-        let conn = db();
-        assert_eq!(
-            pending_count(&conn, std::path::Path::new("/nulle/part")).unwrap(),
-            0,
-            "un disque débranché ne doit pas casser l'écran d'accueil"
-        );
-    }
-}
-
-/// Combien de vidéos d'un piège prendraient sa position actuelle.
-///
-/// `include_manual` dit s'il faut aussi réécrire celles dont la position a été choisie
-/// à la main. Par défaut non : une correction manuelle est une décision, et une action
-/// de masse ne doit pas l'effacer sans qu'on l'ait demandé.
-pub fn trap_position_candidates(
-    conn: &Connection,
-    trap_id: &str,
-    include_manual: bool,
-) -> Result<i64, DbError> {
-    let extra = if include_manual {
-        ""
-    } else {
-        " AND position_manual = 0"
-    };
-    Ok(conn.query_row(
-        &format!(
-            "SELECT COUNT(*) FROM videos
-             WHERE trap_id = ?1 AND deleted_at IS NULL{extra}"
-        ),
-        [trap_id],
-        |r| r.get(0),
-    )?)
-}
-
-/// Applique la position actuelle du piège à ses vidéos déjà indexées.
-///
-/// Sert au cas courant : on renseigne les coordonnées d'un piège **après** avoir importé
-/// ses vidéos. Sans cela, celles-ci resteraient sans position pour toujours, et ni le
-/// rythme solaire ni le filtre jour/nuit ne fonctionneraient pour elles.
-pub fn apply_trap_position(
-    conn: &Connection,
-    trap_id: &str,
-    include_manual: bool,
-) -> Result<usize, DbError> {
-    let (lat, lng, alt): (Option<f64>, Option<f64>, Option<f64>) = conn.query_row(
-        "SELECT latitude, longitude, altitude_m FROM traps WHERE id = ?1 AND deleted_at IS NULL",
-        [trap_id],
-        |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
-    )?;
-    if lat.is_none() || lng.is_none() {
-        return Err(DbError::Other(
-            "ce piège n'a pas de coordonnées : les renseigner d'abord".into(),
-        ));
-    }
-
-    let extra = if include_manual {
-        ""
-    } else {
-        " AND position_manual = 0"
-    };
-    let changed = conn.execute(
-        &format!(
-            "UPDATE videos SET latitude = ?2, longitude = ?3, altitude_m = ?4, updated_at = ?5
-             WHERE trap_id = ?1 AND deleted_at IS NULL{extra}"
-        ),
-        params![trap_id, lat, lng, alt, Utc::now().to_rfc3339()],
-    )?;
-
-    sequences::refresh_sun(conn)?;
-    Ok(changed)
 }

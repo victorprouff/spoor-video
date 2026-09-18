@@ -7,7 +7,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use rusqlite::Connection;
-use spoor_video_lib::testing::{annotate, apply_migrations, copy_videos, detections_csv, list_sequences, media_available, media_init, scan, sequences_csv, Annotation, GridFilter, SpeciesPick};
+use spoor_video_lib::testing::{annotate, pending_report, Disposer, apply_migrations, copy_videos, detections_csv, list_sequences, media_available, media_init, scan, sequences_csv, Annotation, GridFilter, SpeciesPick};
 
 /// Fabrique une vidéo de `seconds` secondes, unique par sa couleur.
 fn make_video(dest: &Path, seconds: f64, color: &str) {
@@ -405,4 +405,57 @@ fn indexe_annote_puis_exporte_de_bout_en_bout() {
         3,
         "les originaux restent en place"
     );
+}
+
+
+/// Supprime le fichier sans passer par la corbeille de la machine : un test ne doit
+/// pas laisser de traces chez qui l'exécute.
+struct SansCorbeille;
+
+impl Disposer for SansCorbeille {
+    fn dispose(&self, path: &Path) -> Result<(), String> {
+        std::fs::remove_file(path).map_err(|e| e.to_string())
+    }
+}
+
+#[test]
+fn une_video_ecartee_puis_revenue_ne_reste_pas_annoncee_en_attente() {
+    ffmpeg_ou_echec();
+    let f = setup();
+    link(&f.conn, "Mare basse");
+
+    let video = f.root.join("Mare basse/DSCF0083.MP4");
+    make_video(&video, 1.0, "red");
+
+    let mut conn = f.conn;
+    assert_eq!(scan(&conn, &f.root, &f.thumbs).unwrap().files_added, 1);
+    assert_eq!(pending_report(&conn, &f.root).unwrap().new_files, 0);
+
+    // Supprimée sans trace : le fichier part, l'empreinte est mémorisée.
+    let video_id: String = conn
+        .query_row("SELECT id FROM videos", [], |r| r.get(0))
+        .unwrap();
+    let sauvegarde = f._dir.path().join("ailleurs.mp4");
+    std::fs::copy(&video, &sauvegarde).unwrap();
+    spoor_video_lib::testing::purge(&mut conn, &[video_id], &SansCorbeille).unwrap();
+
+    // Le fichier revient — restauré depuis la corbeille, ou resynchronisé par un
+    // client cloud quand la racine vit dans un dossier synchronisé.
+    std::fs::copy(&sauvegarde, &video).unwrap();
+
+    // La passe l'ignore, par construction : c'est ce qui évite que réimporter une carte
+    // fasse revenir les fausses déclenches.
+    let r = scan(&conn, &f.root, &f.thumbs).unwrap();
+    assert_eq!(r.files_repurged, 1);
+    assert_eq!(r.files_added, 0);
+
+    // Et la pastille doit dire la même chose que la passe, sans quoi le message
+    // resterait affiché pour toujours.
+    let p = pending_report(&conn, &f.root).unwrap();
+    assert_eq!(
+        p.new_files, 0,
+        "annoncer « 1 fichier attend » alors que la passe ne l'indexera jamais donne \
+         un message qu'on ne peut pas faire partir"
+    );
+    assert_eq!(p.discarded, 1, "mais il reste comptable, et réintégrable");
 }
