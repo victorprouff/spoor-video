@@ -102,6 +102,10 @@ code,
 }
 
 .app__bar {
+  /* Au-dessus de la barre de filtres accrochée : celle-ci glisse d'un pixel dessous,
+     ce qui interdit toute couture entre les deux, même en défilement rapide. */
+  position: relative;
+  z-index: 25;
   display: flex;
   align-items: center;
   gap: var(--gap);
@@ -749,18 +753,12 @@ button.small {
    `top: 0` colle au bord haut de la zone défilante, dont le rembourrage disparaît
    sous le panneau — d'où le fond opaque et l'ombre, sans quoi le contenu se verrait
    glisser derrière. */
-/* Repère invisible, juste au-dessus de la barre : tant qu'il est visible la barre est
-   à sa place, dès qu'il sort par le haut elle est accrochée. */
-.filters__sentinel {
-  height: 1px;
-  margin-bottom: -1px;
-}
-
 .filters__bar {
   position: sticky;
-  /* −24 px, soit le rembourrage de la zone défilante : la barre vient ainsi se coller
-     au bord haut visible, contre l'en-tête, et non 24 px plus bas. */
-  top: -24px;
+  /* −25 px : le rembourrage de la zone défilante (24 px), plus un pixel de
+     recouvrement sous l'en-tête. Sans ce pixel, une couture apparaît au défilement,
+     par laquelle on voit passer le contenu. */
+  top: -25px;
   z-index: 20;
   background: var(--panel);
 }
@@ -768,6 +766,13 @@ button.small {
 /* Accrochée, la barre prolonge l'en-tête : pleine largeur, sans marge ni coins
    arrondis. Les marges laissées autour mangeaient de la hauteur pour rien et
    faisaient flotter un bloc au milieu de nulle part. */
+/* Accrochée, la barre et l'en-tête ne font plus qu'un bloc : le trait de séparation
+   de l'en-tête disparaît. Il subsistait de toute façon aux extrémités, là où la barre
+   de défilement empêche la barre de filtres d'aller jusqu'au bord. */
+:root[data-filters-stuck='1'] .app__bar {
+  border-bottom-color: transparent;
+}
+
 .filters__bar--stuck {
   margin: 0 -24px;
   border-top: none;

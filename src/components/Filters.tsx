@@ -49,6 +49,13 @@ function num(raw: string): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+/**
+ * Défilement à partir duquel la barre vient buter sous l'en-tête : le rembourrage de
+ * la zone défilante (24 px) plus le pixel de recouvrement. Doit rester d'accord
+ * avec `top` dans le CSS.
+ */
+const STICK_AT = 25;
+
 /** Les raccourcis qui servent vraiment : une saison se choisit d'un clic, pas mois par mois. */
 const SEASONS: { label: string; months: number[] }[] = [
   { label: 'Hiver', months: [12, 1, 2] },
@@ -82,23 +89,34 @@ export function Filters({
   durationHint?: string;
 }) {
   // Une barre collée doit se fondre dans l'en-tête : pleine largeur, sans marge ni
-  // coins arrondis. Le CSS seul ne sait pas dire « je suis collée » — d'où cette
-  // sentinelle placée juste au-dessus : tant qu'elle est visible, la barre est à sa
-  // place ; dès qu'elle sort par le haut, la barre est accrochée.
-  const sentinel = useRef<HTMLDivElement>(null);
+  // coins arrondis. Le CSS seul ne sait pas dire « je suis collée ».
+  //
+  // Une première version glissait une sentinelle au-dessus de la barre — mais un
+  // élément de plus dans la pile flex y ajoute sa hauteur *et* un écart. On écoute
+  // donc simplement le défilement : la barre s'accroche passé le rembourrage.
+  const bar = useRef<HTMLElement>(null);
   const [stuck, setStuck] = useState(false);
 
   useEffect(() => {
-    const mark = sentinel.current;
-    if (!mark) return;
-    const scroller = mark.closest('.app__main');
-    const observer = new IntersectionObserver(
-      ([entry]) => setStuck(!entry.isIntersecting),
-      { root: scroller, threshold: 1 },
-    );
-    observer.observe(mark);
-    return () => observer.disconnect();
+    const scroller = bar.current?.closest('.app__main');
+    if (!scroller) return;
+    const onScroll = () => setStuck(scroller.scrollTop >= STICK_AT);
+    onScroll();
+    scroller.addEventListener('scroll', onScroll, { passive: true });
+    return () => scroller.removeEventListener('scroll', onScroll);
   }, []);
+
+  // L'en-tête doit perdre son trait de séparation quand la barre vient s'y fondre.
+  // Il n'est pas dans cet arbre : on passe donc par un attribut sur la racine, plutôt
+  // que de faire remonter l'état à travers les trois vues qui utilisent ce composant.
+  useEffect(() => {
+    const root = document.documentElement;
+    if (stuck) root.dataset.filtersStuck = '1';
+    else delete root.dataset.filtersStuck;
+    return () => {
+      delete root.dataset.filtersStuck;
+    };
+  }, [stuck]);
 
   const [open, setOpen] = useState(() => {
     // Ouvert par défaut : cachés derrière un bouton, les filtres passaient inaperçus.
@@ -129,9 +147,10 @@ export function Filters({
   const n = activeCount(filter) + extraCount;
 
   return (
-    <>
-      <div ref={sentinel} className="filters__sentinel" aria-hidden />
-      <section className={stuck ? 'panel stack filters__bar filters__bar--stuck' : 'panel stack filters__bar'}>
+    <section
+      ref={bar}
+      className={stuck ? 'panel stack filters__bar filters__bar--stuck' : 'panel stack filters__bar'}
+    >
       <div className="row row--flush filters">
         <input
           className="search"
@@ -331,7 +350,6 @@ export function Filters({
           </fieldset>
         </div>
       )}
-      </section>
-    </>
+    </section>
   );
 }
