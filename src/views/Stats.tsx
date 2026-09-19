@@ -205,6 +205,7 @@ export function Stats({ onError }: { onError: (e: string | null) => void }) {
               series={speciesSeries}
               slots={HOURS}
               labelOf={(h) => (h % 6 === 0 ? String(h).padStart(2, '0') : '')}
+              fullLabelOf={(h) => `${String(h).padStart(2, '0')} h`}
             />
           </section>
 

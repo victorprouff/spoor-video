@@ -906,10 +906,38 @@ input.tiny {
   border-radius: 2px;
 }
 
+/* Ligne de lecture : l'intensité d'une case ne se devine pas, elle se lit. */
+.multiples__readout {
+  min-height: 1.5em;
+  margin-bottom: 4px;
+  font-size: 0.9em;
+}
+
+.multiples__cell {
+  cursor: default;
+}
+
+.multiples__cell--on {
+  outline: 1px solid var(--ink);
+  outline-offset: -1px;
+}
+
 .multiples__tick {
   font-size: 0.68em;
   color: var(--muted);
   text-align: center;
+  overflow: hidden;
+}
+
+.multiples__tick--on {
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* Survoler l'axe déplie toutes les graduations : discret au repos, complet à la
+   demande. Sans cela, une case sur six est étiquetée et le reste est du blanc. */
+.multiples__axis {
+  cursor: default;
 }
 
 .multiples__axis {

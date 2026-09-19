@@ -1,3 +1,5 @@
+import { useState } from 'react';
+
 /**
  * Graphiques en CSS maison, sans bibliothèque — comme le reste des styles.
  * Les couleurs viennent des variables de thème, donc tout suit le mode sombre.
@@ -76,25 +78,55 @@ export function BarChart({
 
 /**
  * Plusieurs séries sur le même axe, une ligne par espèce.
+ *
  * Chaque série est normalisée sur son propre maximum : on compare des **formes**
- * d'activité, pas des abondances. Sinon l'espèce la plus fréquente écraserait
- * toutes les autres et on ne verrait plus aucun rythme.
+ * d'activité, pas des abondances. Sinon l'espèce la plus fréquente écraserait toutes
+ * les autres et on ne verrait plus aucun rythme.
+ *
+ * L'intensité d'une case ne se lit pas au jugé : survoler affiche l'espèce, l'heure et
+ * le nombre de passages, et les graduations, discrètes au repos, se déplient toutes.
  */
 export function SmallMultiples({
   series,
   slots,
   labelOf,
+  fullLabelOf = (slot: number) => String(slot).padStart(2, '0'),
+  unit = 'passage',
 }: {
   series: { key: string; name: string; color?: string | null; values: Map<number, number> }[];
   slots: number[];
+  /** Étiquette au repos — laisser vide pour n'en montrer qu'une sur six. */
   labelOf: (slot: number) => string;
+  /** Étiquette complète, affichée au survol. */
+  fullLabelOf?: (slot: number) => string;
+  unit?: string;
 }) {
+  const [hover, setHover] = useState<{ key: string; slot: number; value: number } | null>(null);
+  const [axisOpen, setAxisOpen] = useState(false);
+
   if (series.length === 0) {
     return <p className="muted small">Aucune espèce identifiée dans cette sélection.</p>;
   }
 
+  const expanded = axisOpen || hover !== null;
+
   return (
-    <div className="multiples">
+    <div className="multiples" onMouseLeave={() => setHover(null)}>
+      <div className="multiples__readout">
+        {hover ? (
+          <>
+            <strong>{series.find((s) => s.key === hover.key)?.name}</strong>
+            <span className="muted"> · </span>
+            {fullLabelOf(hover.slot)}
+            <span className="muted"> · </span>
+            <strong>{hover.value}</strong> {unit}
+            {hover.value > 1 ? 's' : ''}
+          </>
+        ) : (
+          <span className="muted">Survole une case pour voir l’heure et le nombre de passages.</span>
+        )}
+      </div>
+
       {series.map((s) => {
         const max = Math.max(...slots.map((h) => s.values.get(h) ?? 0), 1);
         const total = slots.reduce((sum, h) => sum + (s.values.get(h) ?? 0), 0);
@@ -108,11 +140,12 @@ export function SmallMultiples({
             <div className="multiples__track">
               {slots.map((slot) => {
                 const v = s.values.get(slot) ?? 0;
+                const active = hover?.slot === slot;
                 return (
                   <span
                     key={slot}
-                    className="multiples__cell"
-                    title={`${labelOf(slot)} — ${v}`}
+                    className={active ? 'multiples__cell multiples__cell--on' : 'multiples__cell'}
+                    onMouseEnter={() => setHover({ key: s.key, slot, value: v })}
                     style={{
                       // L'opacité dit l'intensité ; la case vide reste visible pour que
                       // l'axe se lise même là où il ne s'est rien passé.
@@ -126,12 +159,23 @@ export function SmallMultiples({
           </div>
         );
       })}
-      <div className="multiples__row multiples__axis">
+
+      <div
+        className="multiples__row multiples__axis"
+        onMouseEnter={() => setAxisOpen(true)}
+        onMouseLeave={() => setAxisOpen(false)}
+      >
         <div className="multiples__name" />
         <div className="multiples__track">
           {slots.map((slot) => (
-            <span key={slot} className="multiples__tick">
-              {labelOf(slot)}
+            <span
+              key={slot}
+              className={
+                hover?.slot === slot ? 'multiples__tick multiples__tick--on' : 'multiples__tick'
+              }
+            >
+              {/* Au repos une graduation sur six suffit ; au survol, toutes. */}
+              {expanded ? fullLabelOf(slot) : labelOf(slot)}
             </span>
           ))}
         </div>
