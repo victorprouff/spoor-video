@@ -9,13 +9,21 @@ import { formatDate, monthName } from '../format';
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
-/** Tranches de 30 min, de 4 h avant le coucher à 10 h après. */
-const SOLAR_SLOTS = Array.from({ length: 29 }, (_, i) => -240 + i * 30);
+/**
+ * Tranches de 30 minutes sur un cycle complet, de 12 h avant le coucher à 12 h après.
+ *
+ * La fenêtre couvre volontairement les 24 heures : une version plus étroite (−4 h → +10 h)
+ * faisait **disparaître sans rien dire** les passages de plein après-midi, à six ou huit
+ * heures du coucher. Un graphique qui omet des données en silence est pire qu'un
+ * graphique large.
+ */
+const SOLAR_SLOTS = Array.from({ length: 49 }, (_, i) => -720 + i * 30);
 
 function solarLabel(minutes: number): string {
   if (minutes === 0) return '☾';
   const h = minutes / 60;
-  return Number.isInteger(h) ? `${h > 0 ? '+' : ''}${h}` : '';
+  // Une graduation toutes les deux heures : sur 49 barres, tout étiqueter est illisible.
+  return Number.isInteger(h) && h % 2 === 0 ? `${h > 0 ? '+' : ''}${h}` : '';
 }
 
 export function Stats({ onError }: { onError: (e: string | null) => void }) {
@@ -151,19 +159,30 @@ export function Stats({ onError }: { onError: (e: string | null) => void }) {
             {axis === 'solar' ? (
               <>
                 <p className="muted small">
-                  Heures avant et après le coucher du soleil (☾ = coucher). C’est la lecture qui
-                  a du sens pour un animal : un renard sort « au crépuscule », pas « à 18 h ».
-                  En heure civile, la même habitude semble se déplacer de plusieurs heures entre
-                  juin et décembre.
+                  Chaque barre est une tranche de 30 minutes, repérée par rapport au{' '}
+                  <strong>coucher du soleil ce jour-là</strong> : <strong>☾</strong> = le coucher,{' '}
+                  <strong>−2</strong> = deux heures avant, <strong>+3</strong> = trois heures
+                  après. Les barres avant le coucher sont atténuées.
+                </p>
+                <p className="muted small">
+                  C’est la lecture qui a du sens pour un animal. Un renard qui sort une heure
+                  après le crépuscule passe à 21 h 50 en juin et à 17 h 50 en décembre : en heure
+                  civile il semble avoir deux habitudes, sur cet axe il n’en a qu’une. À l’inverse,
+                  une espèce diurne s’y étale, son activité de midi tombant à six heures du
+                  coucher en été et à quatre en hiver — pour elle, l’heure civile se lit mieux.
                 </p>
                 <BarChart bars={solarBars} />
                 {data.without_position > 0 && (
                   <p className="muted small">
                     {data.without_position} passage(s) absent(s) de ce graphique : leur piège n’a
                     pas de coordonnées, donc ni lever ni coucher calculables. Renseigne sa position
-                    dans l’onglet Pièges.
+                    dans l’onglet Pièges, puis « Appliquer aux vidéos ».
                   </p>
                 )}
+                <p className="muted small">
+                  {data.total_sequences - data.without_position} passage(s) représenté(s) sur{' '}
+                  {data.total_sequences}.
+                </p>
               </>
             ) : (
               <>
