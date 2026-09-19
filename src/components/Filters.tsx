@@ -110,7 +110,7 @@ export function Filters({
   const n = activeCount(filter) + extraCount;
 
   return (
-    <section className="panel stack">
+    <section className="panel stack filters__bar">
       <div className="row row--flush filters">
         <input
           className="search"

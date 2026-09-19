@@ -592,6 +592,7 @@ button.small {
 
 .actionbar {
   position: fixed;
+  z-index: 30;
   right: 16px;
   bottom: 16px;
   left: 16px;
@@ -741,6 +742,41 @@ button.small {
 }
 
 /* --- Panneau de filtres -------------------------------------------------- */
+
+/* Les filtres suivent le défilement : sur une page de statistiques longue, devoir
+   remonter pour changer un critère puis redescendre pour en voir l'effet casse
+   l'aller-retour qui est justement le geste utile.
+   `top: 0` colle au bord haut de la zone défilante, dont le rembourrage disparaît
+   sous le panneau — d'où le fond opaque et l'ombre, sans quoi le contenu se verrait
+   glisser derrière. */
+.filters__bar {
+  position: sticky;
+  /* `top: 0` colle la barre au bord haut du contenu défilant ; le bandeau ci-dessous
+     comble le rembourrage de 24 px, dans lequel on voyait sinon passer le contenu. */
+  top: 0;
+  z-index: 20;
+  background: var(--panel);
+  box-shadow: 0 8px 14px -10px rgb(0 0 0 / 35%);
+}
+
+/* Le rembourrage de la zone défilante laisse une bande au-dessus du panneau collé, dans
+   laquelle on voyait passer le contenu. Ce bandeau la remplit de la couleur du fond. */
+.filters__bar::before {
+  content: '';
+  position: absolute;
+  top: -25px;
+  right: -1px;
+  left: -1px;
+  height: 25px;
+  background: var(--bg);
+}
+
+/* Le panneau déplié peut être haut : au-delà de la moitié de l'écran il défile
+   lui-même, plutôt que de ne rien laisser voir du contenu. */
+.filters__bar .filters__panel {
+  max-height: 55vh;
+  overflow-y: auto;
+}
 
 .filters__panel {
   display: grid;
