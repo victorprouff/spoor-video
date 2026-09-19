@@ -1,18 +1,27 @@
 /**
- * Graphiques en SVG maison, sans bibliothèque — comme le CSS de Spoor.
+ * Graphiques en CSS maison, sans bibliothèque — comme le reste des styles.
  * Les couleurs viennent des variables de thème, donc tout suit le mode sombre.
  */
 
 type Bar = {
   label: string;
   value: number;
-  /** Sous-titre affiché sous la barre, pour une information de second rang. */
+  /** Sous-titre affiché sous l'étiquette, pour une information de second rang. */
   hint?: string;
   color?: string | null;
   /** Barre atténuée : présente, mais pas au premier plan. */
   dim?: boolean;
 };
 
+/**
+ * L'aire des barres et l'axe sont **deux grilles distinctes**, de même nombre de
+ * colonnes, empilées.
+ *
+ * Une première version plaçait l'étiquette *dans* la colonne, sous la barre. La barre
+ * la plus haute faisant 100 % de la colonne, elle débordait sur l'étiquette : les
+ * graduations se retrouvaient au niveau des barres, et le graphique devenait illisible.
+ * Séparer les deux garantit que rien ne se chevauche, quelle que soit la hauteur.
+ */
 export function BarChart({
   bars,
   height = 160,
@@ -27,24 +36,38 @@ export function BarChart({
   }
   // L'échelle part toujours de zéro : un axe tronqué exagère les écarts.
   const max = Math.max(...bars.map((b) => b.value), 1);
+  // Au-delà d'une vingtaine de barres, les valeurs se chevauchent et ne servent plus
+  // à rien : l'info reste au survol.
+  const showValues = bars.length <= 20;
+  const columns = { gridTemplateColumns: `repeat(${bars.length}, 1fr)` };
 
   return (
-    <div className="chart" style={{ ['--chart-h' as string]: `${height}px` }}>
-      <div className="chart__bars">
+    <div className="chart">
+      <div className="chart__plot" style={{ ...columns, height }}>
         {bars.map((b, i) => (
-          <div key={`${b.label}-${i}`} className={b.dim ? 'chart__col chart__col--dim' : 'chart__col'}>
-            <span className="chart__value">{b.value > 0 ? format(b.value) : ''}</span>
+          <div
+            key={`${b.label}-${i}`}
+            className={b.dim ? 'chart__col chart__col--dim' : 'chart__col'}
+            title={`${b.label || '—'} : ${format(b.value)}`}
+          >
+            {showValues && b.value > 0 && <span className="chart__value">{format(b.value)}</span>}
             <div
               className="chart__bar"
               style={{
                 height: `${(b.value / max) * 100}%`,
                 background: b.color ?? 'var(--accent)',
               }}
-              title={`${b.label} — ${format(b.value)}`}
             />
+          </div>
+        ))}
+      </div>
+
+      <div className="chart__axis" style={columns}>
+        {bars.map((b, i) => (
+          <span key={`axis-${b.label}-${i}`} className="chart__tick">
             <span className="chart__label">{b.label}</span>
             {b.hint && <span className="chart__hint">{b.hint}</span>}
-          </div>
+          </span>
         ))}
       </div>
     </div>
@@ -52,7 +75,7 @@ export function BarChart({
 }
 
 /**
- * Plusieurs séries sur le même axe horaire, une ligne par espèce.
+ * Plusieurs séries sur le même axe, une ligne par espèce.
  * Chaque série est normalisée sur son propre maximum : on compare des **formes**
  * d'activité, pas des abondances. Sinon l'espèce la plus fréquente écraserait
  * toutes les autres et on ne verrait plus aucun rythme.

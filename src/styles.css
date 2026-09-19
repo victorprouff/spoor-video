@@ -802,17 +802,19 @@ input.tiny {
   width: 100%;
 }
 
-.chart__bars {
-  display: flex;
-  align-items: flex-end;
+/* L'aire des barres : rien d'autre qu'elles, pour qu'une barre pleine hauteur
+   n'ait rien à déborder. L'axe vit dans une grille séparée, juste dessous. */
+.chart__plot {
+  display: grid;
+  align-items: end;
   gap: 2px;
-  height: var(--chart-h, 160px);
-  padding-top: 18px;
+  padding-top: 16px;
+  border-bottom: 1px solid var(--border);
 }
 
 .chart__col {
+  position: relative;
   display: flex;
-  flex: 1;
   flex-direction: column;
   justify-content: flex-end;
   align-items: center;
@@ -822,7 +824,7 @@ input.tiny {
 
 /* Une barre atténuée reste lisible : elle est présente, pas au premier plan. */
 .chart__col--dim .chart__bar {
-  opacity: 0.45;
+  opacity: 0.4;
 }
 
 .chart__bar {
@@ -831,23 +833,39 @@ input.tiny {
   border-radius: 2px 2px 0 0;
 }
 
+/* La valeur flotte au-dessus de la barre, hors du flux : elle ne peut donc pas
+   raccourcir la barre ni décaler quoi que ce soit. */
 .chart__value {
-  order: -1;
+  position: absolute;
+  bottom: 100%;
+  margin-bottom: 2px;
   font-size: 0.7em;
   color: var(--muted);
   font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.chart__axis {
+  display: grid;
+  gap: 2px;
+  margin-top: 4px;
+}
+
+.chart__tick {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 0;
 }
 
 .chart__label,
 .chart__hint {
-  margin-top: 3px;
   font-size: 0.7em;
   color: var(--muted);
   white-space: nowrap;
 }
 
 .chart__hint {
-  margin-top: 0;
   opacity: 0.7;
 }
 
