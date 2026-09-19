@@ -9,6 +9,9 @@ import { formatDate, monthName } from '../format';
 
 const HOURS = Array.from({ length: 24 }, (_, i) => i);
 
+/** Une heure se lit « 06 h », jamais « 06 » : le nombre seul peut être n'importe quoi. */
+const hourLabel = (h: number) => `${String(h).padStart(2, '0')} h`;
+
 /**
  * Tranches de 30 minutes sur un cycle complet, de 12 h avant le coucher à 12 h après.
  *
@@ -86,7 +89,7 @@ export function Stats({ onError }: { onError: (e: string | null) => void }) {
     if (!data) return [];
     const byHour = new Map(data.hours.map((h) => [h.hour, h.count]));
     return HOURS.map((h) => ({
-      label: String(h).padStart(2, '0'),
+      label: hourLabel(h),
       value: byHour.get(h) ?? 0,
     }));
   }, [data]);
@@ -204,8 +207,8 @@ export function Stats({ onError }: { onError: (e: string | null) => void }) {
             <SmallMultiples
               series={speciesSeries}
               slots={HOURS}
-              labelOf={(h) => (h % 6 === 0 ? String(h).padStart(2, '0') : '')}
-              fullLabelOf={(h) => `${String(h).padStart(2, '0')} h`}
+              labelOf={(h) => (h % 6 === 0 ? hourLabel(h) : '')}
+              fullLabelOf={hourLabel}
             />
           </section>
 
