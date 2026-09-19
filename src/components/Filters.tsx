@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { CONFIDENCES, SUN_PHASES } from '../api';
 import { SpeciesPicker } from './SpeciesPicker';
@@ -81,6 +81,25 @@ export function Filters({
   durationLabel?: string;
   durationHint?: string;
 }) {
+  // Une barre collée doit se fondre dans l'en-tête : pleine largeur, sans marge ni
+  // coins arrondis. Le CSS seul ne sait pas dire « je suis collée » — d'où cette
+  // sentinelle placée juste au-dessus : tant qu'elle est visible, la barre est à sa
+  // place ; dès qu'elle sort par le haut, la barre est accrochée.
+  const sentinel = useRef<HTMLDivElement>(null);
+  const [stuck, setStuck] = useState(false);
+
+  useEffect(() => {
+    const mark = sentinel.current;
+    if (!mark) return;
+    const scroller = mark.closest('.app__main');
+    const observer = new IntersectionObserver(
+      ([entry]) => setStuck(!entry.isIntersecting),
+      { root: scroller, threshold: 1 },
+    );
+    observer.observe(mark);
+    return () => observer.disconnect();
+  }, []);
+
   const [open, setOpen] = useState(() => {
     // Ouvert par défaut : cachés derrière un bouton, les filtres passaient inaperçus.
     try {
@@ -110,7 +129,9 @@ export function Filters({
   const n = activeCount(filter) + extraCount;
 
   return (
-    <section className="panel stack filters__bar">
+    <>
+      <div ref={sentinel} className="filters__sentinel" aria-hidden />
+      <section className={stuck ? 'panel stack filters__bar filters__bar--stuck' : 'panel stack filters__bar'}>
       <div className="row row--flush filters">
         <input
           className="search"
@@ -310,6 +331,7 @@ export function Filters({
           </fieldset>
         </div>
       )}
-    </section>
+      </section>
+    </>
   );
 }

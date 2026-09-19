@@ -749,26 +749,32 @@ button.small {
    `top: 0` colle au bord haut de la zone défilante, dont le rembourrage disparaît
    sous le panneau — d'où le fond opaque et l'ombre, sans quoi le contenu se verrait
    glisser derrière. */
-.filters__bar {
-  position: sticky;
-  /* `top: 0` colle la barre au bord haut du contenu défilant ; le bandeau ci-dessous
-     comble le rembourrage de 24 px, dans lequel on voyait sinon passer le contenu. */
-  top: 0;
-  z-index: 20;
-  background: var(--panel);
-  box-shadow: 0 8px 14px -10px rgb(0 0 0 / 35%);
+/* Repère invisible, juste au-dessus de la barre : tant qu'il est visible la barre est
+   à sa place, dès qu'il sort par le haut elle est accrochée. */
+.filters__sentinel {
+  height: 1px;
+  margin-bottom: -1px;
 }
 
-/* Le rembourrage de la zone défilante laisse une bande au-dessus du panneau collé, dans
-   laquelle on voyait passer le contenu. Ce bandeau la remplit de la couleur du fond. */
-.filters__bar::before {
-  content: '';
-  position: absolute;
-  top: -25px;
-  right: -1px;
-  left: -1px;
-  height: 25px;
-  background: var(--bg);
+.filters__bar {
+  position: sticky;
+  /* −24 px, soit le rembourrage de la zone défilante : la barre vient ainsi se coller
+     au bord haut visible, contre l'en-tête, et non 24 px plus bas. */
+  top: -24px;
+  z-index: 20;
+  background: var(--panel);
+}
+
+/* Accrochée, la barre prolonge l'en-tête : pleine largeur, sans marge ni coins
+   arrondis. Les marges laissées autour mangeaient de la hauteur pour rien et
+   faisaient flotter un bloc au milieu de nulle part. */
+.filters__bar--stuck {
+  margin: 0 -24px;
+  border-top: none;
+  border-right: none;
+  border-left: none;
+  border-radius: 0;
+  box-shadow: 0 8px 14px -10px rgb(0 0 0 / 35%);
 }
 
 /* Le panneau déplié peut être haut : au-delà de la moitié de l'écran il défile
