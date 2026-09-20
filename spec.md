@@ -328,6 +328,19 @@ Conventions Spoor, reprises telles quelles parce qu'elles ont fait leurs preuves
 - boîtes de dialogue sur `<dialog>` natif, jamais `window.confirm`, focus sur « Annuler » ;
 - panneau d'édition en colonne ancrée, le contenu n'est jamais démonté au repli.
 
+Le lecteur de l'onglet Vidéos se tient au clavier comme le dépouillement : flèches
+gauche et droite pour passer d'une vidéo à l'autre sans revenir à la liste, espace pour
+suspendre, `F` pour le plein écran, Maj+M pour le son, Échap pour sortir.
+
+Le plein écran **ne passe pas par l'API du navigateur** : WKWebView, qui affiche
+l'application, n'expose pas `requestFullscreen` — le clic ne faisait rien du tout. C'est
+la fenêtre du système qu'on agrandit (`setFullscreen`, d'où la permission
+`core:window:allow-set-fullscreen`), et le lecteur qui se déplie en CSS pour occuper
+toute sa surface. Le plein écran natif de la balise `<video>` est écarté pour la même
+raison qu'il serait tentant : il confisquerait les flèches pour avancer dans le fichier,
+et défiler d'une vidéo à l'autre redeviendrait impossible. Fermer le lecteur rend
+toujours la fenêtre, sinon l'application resterait plein écran sur la liste.
+
 Pas de responsive mobile : l'application est de bureau, sur un grand écran.
 
 ---

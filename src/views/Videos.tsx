@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { convertFileSrc } from '@tauri-apps/api/core';
 
 import { STATES, SUN_PHASES, listSpecies, listTraps, listVideos, setVideoPositions } from '../api';
-import type { Species, Trap, VideoFilter, VideoPage, VideoRow } from '../api';
+import type { Species, Trap, VideoFilter, VideoPage } from '../api';
 import { EMPTY_FILTER, Filters } from '../components/Filters';
 import { MapPicker } from '../components/MapPicker';
 import { VideoPlayer } from '../components/VideoPlayer';
@@ -35,7 +35,7 @@ export function Videos({ onError }: { onError: (e: string | null) => void }) {
   const [page, setPage] = useState<VideoPage | null>(null);
   const [traps, setTraps] = useState<Trap[]>([]);
   const [species, setSpecies] = useState<Species[]>([]);
-  const [playing, setPlaying] = useState<VideoRow | null>(null);
+  const [playingId, setPlayingId] = useState<string | null>(null);
   // Les fichiers se regardent plutôt en liste : c'est là qu'on cherche une capture
   // précise. La grille sert à balayer d'un coup d'œil.
   const [display, setDisplay] = useDisplay('videos', 'list');
@@ -86,6 +86,10 @@ export function Videos({ onError }: { onError: (e: string | null) => void }) {
 
   const rows = page?.rows ?? [];
   const limit = filter.limit;
+  // On ne défile qu'entre les vidéos qu'on peut voir : une disparue n'a rien à montrer.
+  const playable = rows.filter((v) => v.file_state === 'present');
+  const playingIndex = playable.findIndex((v) => v.id === playingId);
+  const playing = playingIndex >= 0 ? playable[playingIndex] : null;
 
   return (
     <div className={selected.size > 0 ? 'stack grid-view' : 'stack'}>
@@ -195,7 +199,7 @@ export function Videos({ onError }: { onError: (e: string | null) => void }) {
                 key={v.id}
                 type="button"
                 className="tile"
-                onClick={() => v.file_state === 'present' && setPlaying(v)}
+                onClick={() => v.file_state === 'present' && setPlayingId(v.id)}
                 title={v.file_state === 'present' ? 'Lire' : 'Le fichier n’est plus là'}
               >
                 <div className="tile__image">
@@ -275,7 +279,7 @@ export function Videos({ onError }: { onError: (e: string | null) => void }) {
                         src={convertFileSrc(v.thumbnail_path)}
                         alt=""
                         loading="lazy"
-                        onClick={() => v.file_state === 'present' && setPlaying(v)}
+                        onClick={() => v.file_state === 'present' && setPlayingId(v.id)}
                       />
                     ) : (
                       <span className="thumb--mini thumb__none" style={{ width: thumbSize / 2 }}>
@@ -345,7 +349,7 @@ export function Videos({ onError }: { onError: (e: string | null) => void }) {
                   </td>
                   <td className="row--actions">
                     <button
-                      onClick={() => setPlaying(v)}
+                      onClick={() => setPlayingId(v.id)}
                       disabled={v.file_state !== 'present'}
                       title={
                         v.file_state !== 'present'
@@ -447,7 +451,16 @@ export function Videos({ onError }: { onError: (e: string | null) => void }) {
           filePath={playing.file_path}
           title={`${playing.trap_name} — ${formatDateTime(playing.recorded_at)}`}
           subtitle={playing.file_name}
-          onClose={() => setPlaying(null)}
+          position={`${playingIndex + 1} / ${playable.length}`}
+          onPrev={
+            playingIndex > 0 ? () => setPlayingId(playable[playingIndex - 1].id) : undefined
+          }
+          onNext={
+            playingIndex < playable.length - 1
+              ? () => setPlayingId(playable[playingIndex + 1].id)
+              : undefined
+          }
+          onClose={() => setPlayingId(null)}
         />
       )}
     </div>

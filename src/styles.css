@@ -1228,6 +1228,31 @@ input.tiny {
   border-radius: var(--radius);
 }
 
+/* Plein écran : la fenêtre du système s'agrandit (WKWebView n'expose pas l'API du
+   navigateur), et le lecteur se déplie pour occuper toute sa surface. La boîte est
+   déjà dans la couche supérieure : il suffit de l'étendre. */
+.dialog--player:has(.player--full) {
+  width: 100vw;
+  max-width: 100vw;
+  height: 100vh;
+  max-height: 100vh;
+  padding: 12px;
+  border-radius: 0;
+}
+
+.player--full {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* La barre de commandes garde sa hauteur, la vidéo prend tout le reste. */
+.player--full video {
+  flex: 1;
+  min-height: 0;
+  max-height: none;
+}
+
 /* --- Taille des miniatures ----------------------------------------------- */
 
 /* Une seule variable pilote la largeur des tuiles : le curseur de zoom la fait
