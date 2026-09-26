@@ -352,7 +352,10 @@ laissent forcément de côté.
 
 **Recherche.** Filtres combinables : pièges, espèces (OU), confiance minimale,
 plage de dates, mois toutes années, plage horaire, jour/nuit, durée de séquence,
-état (`empty`, non dépouillé…), texte libre sur les notes.
+état (`empty`, non dépouillé…), nom de fichier.
+
+Les notes de séquence (`sequences.notes`) ne sont plus cherchées : aucun écran ne permet
+de les saisir, et leur usage n'est pas apparu. La colonne reste en base, vide.
 
 **Exports.** CSV des séquences et des détections, et copie d'une sélection de fichiers
 vers un dossier — la seule opération où l'application écrit des vidéos, et elle copie,
@@ -391,6 +394,12 @@ Corriger une séquence déjà dépouillée n'est pas un réglage : cela passe pa
 Vidéos : le lecteur porte un bouton **Dépouiller** qui rouvre le passage de la vidéo
 lue, même quand l'onglet est caché. Un bouton sur chaque ligne de la liste a été essayé :
 trop lourd, à côté de « Lire ».
+
+**Sobriété.** Le mode d'emploi d'un graphique sert une fois, puis encombre : il est
+replié sous « Comment lire ce graphique ». Reste visible ce qui change la lecture des
+chiffres affichés — passages absents faute de position, comptages bruts entre pièges.
+Tous les contrôles d'une ligne ont la même hauteur (`--control-h`) ; WebKit dessinant
+les listes déroulantes natives plus basses que les champs, elles sont redessinées.
 
 Le lecteur de l'onglet Vidéos se tient au clavier comme le dépouillement : flèches
 gauche et droite pour passer d'une vidéo à l'autre sans revenir à la liste, espace pour

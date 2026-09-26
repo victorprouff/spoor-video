@@ -15,6 +15,9 @@
 
   --radius: 8px;
   --gap: 12px;
+  /* Une seule hauteur pour tous les contrôles d'une ligne : champ, liste, date, bouton. */
+  --control-h: calc(34px * var(--ui-scale));
+  --control-font: calc(15px * var(--ui-scale));
 
   /* Taille d'affichage réglable, comme dans Spoor. */
   --ui-scale: 1;
@@ -168,6 +171,7 @@ code,
 
 button {
   font: inherit;
+  line-height: 20px;
   color: var(--ink);
   background: var(--panel);
   border: 1px solid var(--border);
@@ -314,6 +318,31 @@ textarea {
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: 6px 8px;
+}
+
+/* Les contrôles d'une ligne gardent la même taille, même posés dans un libellé en petit
+   corps (« Du … au … ») : sans cela les dates et les heures rapetissaient. Et WebKit
+   dessine une liste déroulante native plus basse qu'un champ, quel que soit son
+   rembourrage — on la redessine donc, chevron compris. */
+input:not([type='checkbox']):not([type='radio']):not([type='color']):not([type='range']),
+select {
+  height: var(--control-h);
+  font-size: var(--control-font);
+  line-height: 20px;
+}
+
+select {
+  appearance: none;
+  -webkit-appearance: none;
+  padding-right: 28px;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--muted) 50%),
+    linear-gradient(135deg, var(--muted) 50%, transparent 50%);
+  background-position:
+    calc(100% - 15px) 50%,
+    calc(100% - 10px) 50%;
+  background-size: 5px 5px;
+  background-repeat: no-repeat;
 }
 
 input:focus-visible,
@@ -1359,4 +1388,86 @@ input.tiny {
 .pip--quiet {
   color: var(--ink);
   background: var(--border);
+}
+
+/* --- Statistiques -------------------------------------------------------- */
+
+.kpis {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 40px;
+}
+
+.kpi {
+  display: flex;
+  flex-direction: column;
+}
+
+.kpi__n {
+  font-size: 1.7em;
+  font-weight: 600;
+  line-height: 1.15;
+  font-variant-numeric: tabular-nums;
+}
+
+.kpi__label {
+  color: var(--muted);
+  font-size: 0.9em;
+}
+
+.kpi--quiet .kpi__n {
+  color: var(--muted);
+}
+
+/* Deux boutons qui s'excluent : un seul contrôle, pas deux boutons côte à côte. */
+.segmented {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.segmented button {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: var(--muted);
+}
+
+.segmented button + button {
+  border-left: 1px solid var(--border);
+}
+
+.segmented .segmented__on {
+  background: var(--bg);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+/* Mode d'emploi replié : présent pour qui le cherche, invisible pour qui le connaît. */
+.help {
+  color: var(--muted);
+  font-size: 0.9em;
+}
+
+.help summary {
+  width: fit-content;
+  cursor: pointer;
+  user-select: none;
+}
+
+.help summary:hover {
+  color: var(--ink);
+}
+
+.help__body {
+  margin-top: 6px;
+}
+
+.help__body p {
+  margin: 0 0 6px;
+}
+
+.warn {
+  color: var(--warn);
 }

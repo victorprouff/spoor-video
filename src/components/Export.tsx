@@ -29,12 +29,15 @@ export function Export({
   selection,
   total,
   onError,
+  compact = false,
 }: {
   filter: GridFilter;
   /** Séquences cochées dans la grille, pour la copie de fichiers. */
   selection: string[];
   total: number;
   onError: (e: string | null) => void;
+  /** Sans la copie de fichiers, qui n'a de sens qu'avec une sélection de séquences. */
+  compact?: boolean;
 }) {
   const [report, setReport] = useState<ExportReport | null>(null);
   const [copy, setCopy] = useState<CopyReport | null>(null);
@@ -86,28 +89,31 @@ export function Export({
         <button onClick={() => exportCsv('detections')} disabled={busy || total === 0}>
           CSV des détections
         </button>
-        <span className="muted small">
-          {total} séquence(s) dans la sélection courante — les filtres s’appliquent
-        </span>
+        <span className="muted small">{total} séquence(s), filtres appliqués</span>
       </div>
 
-      <p className="muted small">
-        Le CSV des <strong>séquences</strong> donne une ligne par passage, les espèces réunies
-        dans une cellule : pratique à lire. Celui des <strong>détections</strong> donne une ligne
-        par espèce, avec année, mois et heure dépliés : c’est la forme qu’attendent R et Python.
-        Point-virgule et BOM, pour qu’Excel en français ouvre le fichier sans le massacrer.
-      </p>
+      <details className="help">
+        <summary>Quel fichier choisir ?</summary>
+        <p className="help__body">
+          Le CSV des <strong>séquences</strong> donne une ligne par passage, les espèces réunies
+          dans une cellule : pratique à lire. Celui des <strong>détections</strong> donne une ligne
+          par espèce, avec année, mois et heure dépliés : c’est la forme qu’attendent R et Python.
+          Point-virgule et BOM, pour qu’Excel en français ouvre le fichier sans le massacrer.
+        </p>
+      </details>
 
-      <div className="row row--flush">
-        <button onClick={copyFiles} disabled={busy || selection.length === 0}>
-          Copier les vidéos de {selection.length} séquence(s)
-        </button>
-        <span className="muted small">
-          {selection.length === 0
-            ? 'Coche des séquences dans la grille pour copier leurs fichiers'
-            : 'Les originaux restent en place : l’application copie, elle ne déplace jamais'}
-        </span>
-      </div>
+      {!compact && (
+        <div className="row row--flush">
+          <button onClick={copyFiles} disabled={busy || selection.length === 0}>
+            Copier les vidéos de {selection.length} séquence(s)
+          </button>
+          <span className="muted small">
+            {selection.length === 0
+              ? 'Coche des séquences dans la grille pour copier leurs fichiers'
+              : 'Les originaux restent en place : l’application copie, elle ne déplace jamais'}
+          </span>
+        </div>
+      )}
 
       {report && (
         <p>

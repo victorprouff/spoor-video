@@ -155,7 +155,7 @@ export function Filters({
       <div className="row row--flush filters">
         <input
           className="search"
-          placeholder="Rechercher dans les notes et les noms de fichier…"
+          placeholder="Nom de fichier…"
           value={filter.query ?? ''}
           onChange={(e) => set('query', e.target.value || null)}
         />

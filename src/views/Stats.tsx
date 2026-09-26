@@ -123,113 +123,167 @@ export function Stats({ onError }: { onError: (e: string | null) => void }) {
         </section>
       ) : (
         <>
-          <section className="panel stack">
-            <h2>Vue d’ensemble</h2>
-            <ul className="tallies">
-              <li>
-                <span className="tallies__n">{data.total_sequences}</span> passages
-              </li>
-              <li>
-                <span className="tallies__n">{data.total_videos}</span> déclenchements
-              </li>
-              <li>
-                <span className="tallies__n">{data.identified_sequences}</span> avec une espèce
-              </li>
-              <li className={data.unreviewed_sequences ? undefined : 'muted'}>
-                <span className="tallies__n">{data.unreviewed_sequences}</span> à dépouiller
-              </li>
-            </ul>
+          <section className="panel kpis">
+            <div className="kpi">
+              <span className="kpi__n">{data.total_sequences}</span>
+              <span className="kpi__label">passages</span>
+            </div>
+            <div className="kpi">
+              <span className="kpi__n">{data.total_videos}</span>
+              <span className="kpi__label">déclenchements</span>
+            </div>
+            <div className="kpi">
+              <span className="kpi__n">{data.identified_sequences}</span>
+              <span className="kpi__label">avec une espèce</span>
+            </div>
+            <div className="kpi">
+              <span className="kpi__n">{data.species.length}</span>
+              <span className="kpi__label">espèce{data.species.length > 1 ? 's' : ''}</span>
+            </div>
+            {data.unreviewed_sequences > 0 && (
+              <div className="kpi kpi--quiet">
+                <span className="kpi__n">{data.unreviewed_sequences}</span>
+                <span className="kpi__label">à dépouiller</span>
+              </div>
+            )}
           </section>
 
           <section className="panel stack">
             <div className="row row--flush">
               <h2>Rythme d’activité</h2>
               <span className="app__spacer" />
-              <button
-                className={axis === 'solar' ? 'tab--on' : undefined}
-                onClick={() => setAxis('solar')}
-              >
-                Heure solaire
-              </button>
-              <button
-                className={axis === 'civil' ? 'tab--on' : undefined}
-                onClick={() => setAxis('civil')}
-              >
-                Heure civile
-              </button>
+              <div className="segmented">
+                <button
+                  className={axis === 'solar' ? 'segmented__on' : undefined}
+                  onClick={() => setAxis('solar')}
+                >
+                  Heure solaire
+                </button>
+                <button
+                  className={axis === 'civil' ? 'segmented__on' : undefined}
+                  onClick={() => setAxis('civil')}
+                >
+                  Heure civile
+                </button>
+              </div>
             </div>
 
             {axis === 'solar' ? (
               <>
-                <p className="muted small">
-                  Chaque barre est une tranche de 30 minutes, repérée par rapport au{' '}
-                  <strong>coucher du soleil ce jour-là</strong> : <strong>☾</strong> = le coucher,{' '}
-                  <strong>−2</strong> = deux heures avant, <strong>+3</strong> = trois heures
-                  après. Les barres avant le coucher sont atténuées.
-                </p>
-                <p className="muted small">
-                  C’est la lecture qui a du sens pour un animal. Un renard qui sort une heure
-                  après le crépuscule passe à 21 h 50 en juin et à 17 h 50 en décembre : en heure
-                  civile il semble avoir deux habitudes, sur cet axe il n’en a qu’une. À l’inverse,
-                  une espèce diurne s’y étale, son activité de midi tombant à six heures du
-                  coucher en été et à quatre en hiver — pour elle, l’heure civile se lit mieux.
-                </p>
                 <BarChart bars={solarBars} />
-                {data.without_position > 0 && (
-                  <p className="muted small">
-                    {data.without_position} passage(s) absent(s) de ce graphique : leur piège n’a
-                    pas de coordonnées, donc ni lever ni coucher calculables. Renseigne sa position
-                    dans Réglages → Pièges, puis « Appliquer aux vidéos ».
-                  </p>
-                )}
                 <p className="muted small">
-                  {data.total_sequences - data.without_position} passage(s) représenté(s) sur{' '}
-                  {data.total_sequences}.
+                  Par tranches de 30 min autour du <strong>coucher du soleil</strong> (☾) de chaque
+                  jour.
+                  {data.without_position > 0 ? (
+                    <>
+                      {' '}
+                      <span className="warn">
+                        {data.without_position} passage(s) sur {data.total_sequences} absent(s)
+                      </span>{' '}
+                      : leur piège n’a pas de coordonnées (Réglages → Pièges).
+                    </>
+                  ) : null}
                 </p>
+                <Help>
+                  <p>
+                    <strong>−2</strong> = deux heures avant le coucher, <strong>+3</strong> = trois
+                    heures après ; les barres avant le coucher sont atténuées.
+                  </p>
+                  <p>
+                    C’est la lecture qui a du sens pour un animal. Un renard qui sort une heure
+                    après le crépuscule passe à 21 h 50 en juin et à 17 h 50 en décembre : en heure
+                    civile il semble avoir deux habitudes, ici il n’en a qu’une. Une espèce diurne,
+                    au contraire, s’y étale : pour elle, l’heure civile se lit mieux.
+                  </p>
+                  {data.without_position > 0 && (
+                    <p>
+                      Sans coordonnées, ni lever ni coucher ne se calculent. Renseigne la position
+                      du piège, puis « Appliquer aux vidéos ».
+                    </p>
+                  )}
+                </Help>
               </>
             ) : (
               <>
+                <BarChart bars={hourBars} />
                 <p className="muted small">
                   Heure de l’horloge de la caméra, corrigée de son décalage.
                 </p>
-                <BarChart bars={hourBars} />
               </>
             )}
           </section>
 
           <section className="panel stack">
             <h2>Rythme par espèce</h2>
-            <p className="muted small">
-              Une ligne par espèce, sur l’axe des 24 heures. Chaque ligne est mise à l’échelle de
-              son propre maximum : on compare des <em>formes</em> d’activité, pas des abondances —
-              sinon l’espèce la plus fréquente écraserait toutes les autres.
-            </p>
             <SmallMultiples
               series={speciesSeries}
               slots={HOURS}
               labelOf={(h) => (h % 6 === 0 ? hourLabel(h) : '')}
               fullLabelOf={hourLabel}
             />
+            <Help>
+              <p>
+                Une ligne par espèce, sur 24 heures, chacune à l’échelle de son propre maximum : on
+                compare des <em>formes</em> d’activité, pas des abondances — sinon l’espèce la plus
+                fréquente écraserait les autres.
+              </p>
+            </Help>
           </section>
 
           <section className="panel stack">
             <h2>Saisonnalité</h2>
-            <p className="muted small">
-              Tous les mois de janvier ensemble, tous les février ensemble, quelle que soit
-              l’année. Le nombre d’années qui nourrissent chaque mois est indiqué dessous.
-            </p>
             <BarChart bars={monthBars} />
+            <Help>
+              <p>
+                Tous les mois de janvier ensemble, tous les février ensemble, quelle que soit
+                l’année. Le nombre d’années qui nourrissent chaque mois est indiqué dessous.
+              </p>
+            </Help>
           </section>
 
           <section className="panel stack">
-            <h2>Comparaison entre emplacements</h2>
-            <div className="notice notice--warn panel">
-              <strong>À lire avec prudence.</strong> Ces chiffres sont des comptages bruts. Sans
-              effort de piégeage enregistré, deux pièges ne sont pas comparables si l’un a tourné
-              trois mois et l’autre trois semaines. La colonne « période » donne l’écart entre la
-              première et la dernière capture — ce n’est <em>pas</em> une durée de fonctionnement :
-              les batteries vides et les pièges relevés n’y apparaissent pas.
-            </div>
+            <h2>Par espèce</h2>
+            {data.species.length === 0 ? (
+              <p className="muted">Aucune espèce identifiée dans cette sélection.</p>
+            ) : (
+              <table className="table">
+                <thead>
+                  <tr>
+                    <th>Espèce</th>
+                    <th className="num">Passages</th>
+                    <th className="num">Déclenchements</th>
+                    <th className="num">dont certains</th>
+                    <th className="num">Pièges</th>
+                    <th>Période</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.species.map((s) => (
+                    <tr key={s.species_id}>
+                      <td>
+                        <span
+                          className="swatch"
+                          style={{ background: s.color ?? 'transparent' }}
+                          aria-hidden
+                        />{' '}
+                        {s.common_name}
+                      </td>
+                      <td className="num">{s.sequences}</td>
+                      <td className="num">{s.videos}</td>
+                      <td className="num muted">{s.certain}</td>
+                      <td className="num">{s.traps}</td>
+                      <td className="muted small">
+                        {formatDate(s.first_at)} → {formatDate(s.last_at)}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </section>
+
+          <section className="panel stack">
+            <h2>Par piège</h2>
             <table className="table">
               <thead>
                 <tr>
@@ -256,53 +310,45 @@ export function Stats({ onError }: { onError: (e: string | null) => void }) {
                 ))}
               </tbody>
             </table>
+            <p className="muted small">
+              Comptages bruts : deux pièges ne se comparent pas s’ils n’ont pas tourné aussi
+              longtemps.
+            </p>
+            <Help label="Pourquoi ?">
+              <p>
+                Sans effort de piégeage enregistré, un piège qui a tourné trois mois et un autre
+                trois semaines ne sont pas comparables. La « période » va de la première à la
+                dernière capture : ce n’est <em>pas</em> une durée de fonctionnement — batteries
+                vides et pièges relevés n’y apparaissent pas.
+              </p>
+            </Help>
           </section>
 
-          <Export filter={filter} selection={[]} total={data.total_sequences} onError={onError} />
-
-          <section className="panel stack">
-            <h2>Par espèce</h2>
-            {data.species.length === 0 ? (
-              <p className="muted">Aucune espèce identifiée dans cette sélection.</p>
-            ) : (
-              <table className="table">
-                <thead>
-                  <tr>
-                    <th />
-                    <th>Espèce</th>
-                    <th className="num">Passages</th>
-                    <th className="num">Déclenchements</th>
-                    <th className="num">dont certains</th>
-                    <th className="num">Pièges</th>
-                    <th>Première</th>
-                    <th>Dernière</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.species.map((s) => (
-                    <tr key={s.species_id}>
-                      <td>
-                        <span
-                          className="swatch"
-                          style={{ background: s.color ?? 'transparent' }}
-                          aria-hidden
-                        />
-                      </td>
-                      <td>{s.common_name}</td>
-                      <td className="num">{s.sequences}</td>
-                      <td className="num">{s.videos}</td>
-                      <td className="num muted">{s.certain}</td>
-                      <td className="num">{s.traps}</td>
-                      <td className="muted small">{formatDate(s.first_at)}</td>
-                      <td className="muted small">{formatDate(s.last_at)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
-          </section>
+          <Export
+            filter={filter}
+            selection={[]}
+            total={data.total_sequences}
+            onError={onError}
+            compact
+          />
         </>
       )}
     </div>
+  );
+}
+
+/** Le mode d'emploi d'un graphique : utile une fois, encombrant ensuite. Replié par défaut. */
+function Help({
+  children,
+  label = 'Comment lire ce graphique',
+}: {
+  children: React.ReactNode;
+  label?: string;
+}) {
+  return (
+    <details className="help">
+      <summary>{label}</summary>
+      <div className="help__body">{children}</div>
+    </details>
   );
 }

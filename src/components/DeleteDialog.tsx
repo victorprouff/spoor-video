@@ -127,7 +127,7 @@ export function DeleteDialog({
               />
               <span>
                 <strong>Garder la trace</strong> — le fichier part à la corbeille, la ligne reste :
-                date, piège, espèce, notes. La séquence compte encore dans les statistiques, seule la
+                date, piège, espèce. La séquence compte encore dans les statistiques, seule la
                 lecture devient impossible. <em>C’est le cas courant : un passage humain, un chien.</em>
               </span>
             </label>

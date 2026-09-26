@@ -37,7 +37,8 @@ pub struct GridFilter {
     /// Durée du passage, en secondes.
     pub duration_min_s: Option<i64>,
     pub duration_max_s: Option<i64>,
-    /// Texte libre : notes de la séquence, et nom de fichier de ses vidéos.
+    /// Texte libre, cherché dans le nom de fichier des vidéos de la séquence. Les notes
+    /// de séquence n'en font plus partie : aucun écran ne permet de les saisir.
     pub query: Option<String>,
     pub limit: Option<i64>,
     pub offset: Option<i64>,
@@ -210,12 +211,10 @@ pub fn where_clause(filter: &GridFilter) -> (String, Vec<Box<dyn ToSql>>) {
     if let Some(q) = filter.query.as_ref().map(|q| q.trim()).filter(|q| !q.is_empty()) {
         let like = format!("%{q}%");
         clauses.push(
-            "(s.notes LIKE ?1 ESCAPE '\\'
-              OR EXISTS (SELECT 1 FROM videos v WHERE v.sequence_id = s.id
-                         AND v.deleted_at IS NULL AND v.file_name LIKE ?1 ESCAPE '\\'))"
-                .replace("?1", "?"),
+            "EXISTS (SELECT 1 FROM videos v WHERE v.sequence_id = s.id
+                     AND v.deleted_at IS NULL AND v.file_name LIKE ? ESCAPE '\\')"
+                .into(),
         );
-        params.push(Box::new(like.clone()));
         params.push(Box::new(like));
     }
 
@@ -711,7 +710,7 @@ mod filter_tests {
     }
 
     #[test]
-    fn cherche_dans_les_notes_et_les_noms_de_fichier() {
+    fn cherche_dans_les_noms_de_fichier_pas_dans_les_notes() {
         let mut conn = db();
         annotate(
             &mut conn,
@@ -739,7 +738,7 @@ mod filter_tests {
             },
         )
         .unwrap();
-        assert_eq!(seq_ids(&notes), vec!["s1"]);
+        assert!(seq_ids(&notes).is_empty(), "les notes ne sont plus cherchées");
 
         let fichier = page(
             &conn,

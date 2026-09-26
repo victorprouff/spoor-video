@@ -181,10 +181,8 @@ fn where_clause(filter: &VideoFilter) -> (String, Vec<Box<dyn ToSql>>) {
     }
 
     if let Some(q) = f.query.as_ref().map(|q| q.trim()).filter(|q| !q.is_empty()) {
-        clauses.push("(v.file_name LIKE ? OR s.notes LIKE ?)".into());
-        let like = format!("%{q}%");
-        params.push(Box::new(like.clone()));
-        params.push(Box::new(like));
+        clauses.push("v.file_name LIKE ?".into());
+        params.push(Box::new(format!("%{q}%")));
     }
 
     // --- Critères propres au fichier ----------------------------------------
