@@ -64,7 +64,7 @@ trouve ffmpeg dans Homebrew. Sur un autre Mac, il faudrait d'abord embarquer ffm
 - **Base et vignettes** : par défaut dans
   `~/Library/Application Support/fr.victorprouff.spoorvideo/` (`spoor-video.sqlite` et
   `thumbnails/`). Elles se déplacent ensemble où l'on veut, par exemple à côté des vidéos,
-  depuis l'onglet **Indexation → Base de données**. Déplacer copie et laisse l'original en
+  depuis **Réglages → Dossiers et indexation**. Déplacer copie et laisse l'original en
   place. Si la base est introuvable au démarrage (disque débranché), l'application le dit
   et ne crée jamais de base vide à la place (voir `spec.md` §4).
 - **En développement** (`npm run tauri:dev`), tout vit à part, dans le sous-dossier

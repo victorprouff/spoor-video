@@ -35,8 +35,28 @@ import { Review } from './Review';
 // Par défaut on montre ce qui reste à faire : c'est la raison d'ouvrir cet onglet.
 const DEFAULT_FILTER: GridFilter = { ...EMPTY_FILTER, review: 'unreviewed' };
 
-export function Grid({ onError }: { onError: (e: string | null) => void }) {
-  const [filter, setFilter] = useState<GridFilter>(DEFAULT_FILTER);
+export function Grid({
+  onError,
+  onChanged,
+  focusSequenceId = null,
+  onClearFocus,
+}: {
+  onError: (e: string | null) => void;
+  /** Après chaque rafraîchissement : ce qui reste à dépouiller a pu changer. */
+  onChanged?: () => void;
+  /** Séquence rouverte depuis l'onglet Vidéos, pour la corriger. */
+  focusSequenceId?: string | null;
+  onClearFocus?: () => void;
+}) {
+  const [filter, setFilter] = useState<GridFilter>(() =>
+    focusSequenceId ? { ...EMPTY_FILTER, sequence_id: focusSequenceId } : DEFAULT_FILTER,
+  );
+
+  useEffect(() => {
+    setFilter(
+      focusSequenceId ? { ...EMPTY_FILTER, sequence_id: focusSequenceId } : DEFAULT_FILTER,
+    );
+  }, [focusSequenceId]);
   const [page, setPage] = useState<GridPage | null>(null);
   const [traps, setTraps] = useState<Trap[]>([]);
   const [species, setSpecies] = useState<Species[]>([]);
@@ -53,10 +73,11 @@ export function Grid({ onError }: { onError: (e: string | null) => void }) {
   const refresh = useCallback(async () => {
     try {
       setPage(await gridPage(filter));
+      onChanged?.();
     } catch (e) {
       onError(String(e));
     }
-  }, [filter, onError]);
+  }, [filter, onError, onChanged]);
 
   useEffect(() => {
     void refresh();
@@ -171,6 +192,23 @@ export function Grid({ onError }: { onError: (e: string | null) => void }) {
   return (
     <div className="stack grid-view">
       <Filters filter={filter} onChange={setFilter} traps={traps} species={species} />
+
+      {filter.sequence_id && (
+        <div className="panel notice notice--new">
+          <div className="row row--flush">
+            <span>Une seule séquence, rouverte depuis l’onglet Vidéos pour la corriger.</span>
+            <span className="app__spacer" />
+            <button
+              onClick={() => {
+                setFilter(DEFAULT_FILTER);
+                onClearFocus?.();
+              }}
+            >
+              Voir tout ce qui reste à dépouiller
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="row row--flush">
         <span className="muted small">

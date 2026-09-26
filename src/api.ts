@@ -186,6 +186,8 @@ export type GridPage = {
 };
 
 export type GridFilter = {
+  /** Une seule séquence : celle qu'on rouvre depuis l'onglet Vidéos. */
+  sequence_id: string | null;
   trap_id: string | null;
   review: 'unreviewed' | 'reviewed' | 'all';
   states: string[];

@@ -9,7 +9,7 @@ type Pending = { kind: 'move' | 'open'; dir: string } | { kind: 'default' };
 
 /**
  * Où vivent la base et les vignettes, et de quoi les déplacer. Sert dans l'onglet
- * Indexation, et seul à l'écran quand la base est introuvable au démarrage.
+ * Réglages, et seul à l'écran quand la base est introuvable au démarrage.
  */
 export function DataLocationPanel({
   location,

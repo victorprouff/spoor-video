@@ -1322,3 +1322,41 @@ input.tiny {
 .filters .picker__chosen .chip {
   white-space: nowrap;
 }
+
+/* --- Réglages ------------------------------------------------------------ */
+
+.settings {
+  display: grid;
+  grid-template-columns: 200px minmax(0, 1fr);
+  gap: 24px;
+  align-items: start;
+}
+
+.settings__nav {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.settings__nav .tab {
+  text-align: left;
+}
+
+.icon {
+  width: 16px;
+  height: 16px;
+  display: block;
+}
+
+.tab--icon {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.pip--quiet {
+  color: var(--ink);
+  background: var(--border);
+}

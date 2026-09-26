@@ -7,6 +7,7 @@ import type { Confidence, GridFilter, Species, Trap } from '../api';
 import { monthName } from '../format';
 
 export const EMPTY_FILTER: GridFilter = {
+  sequence_id: null,
   trap_id: null,
   review: 'all',
   states: [],

@@ -31,7 +31,14 @@ function humanBytes(bytes: number): string {
 }
 
 /** Toutes les vidéos, une par ligne, filtrables jusqu'au fichier. */
-export function Videos({ onError }: { onError: (e: string | null) => void }) {
+export function Videos({
+  onError,
+  onOpenSequence,
+}: {
+  onError: (e: string | null) => void;
+  /** Rouvre la séquence d'une vidéo au dépouillement, pour la corriger. */
+  onOpenSequence?: (sequenceId: string) => void;
+}) {
   const [filter, setFilter] = useState<VideoFilter>(EMPTY_VIDEO_FILTER);
   const [page, setPage] = useState<VideoPage | null>(null);
   const [traps, setTraps] = useState<Trap[]>([]);
@@ -503,6 +510,11 @@ export function Videos({ onError }: { onError: (e: string | null) => void }) {
               : undefined
           }
           onClose={() => setPlayingId(null)}
+          onReview={
+            playing.sequence_id && onOpenSequence
+              ? () => onOpenSequence(playing.sequence_id!)
+              : undefined
+          }
         />
       )}
     </div>

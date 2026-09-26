@@ -33,6 +33,7 @@ export function VideoPlayer({
   onPrev,
   onNext,
   position,
+  onReview,
 }: {
   filePath: string;
   title: string;
@@ -43,6 +44,8 @@ export function VideoPlayer({
   onNext?: () => void;
   /** « 3 / 48 » : savoir où l'on en est quand on défile. */
   position?: string;
+  /** Rouvre le passage de la vidéo au dépouillement, pour le corriger. */
+  onReview?: () => void;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const [muted, setMuted] = useState(storedMuted);
@@ -148,6 +151,17 @@ export function VideoPlayer({
           <button onClick={toggleFull} title="F">
             {full ? 'Quitter le plein écran' : 'Plein écran'}
           </button>
+          {onReview && (
+            <button
+              onClick={() => {
+                close();
+                onReview();
+              }}
+              title="Rouvrir son passage au dépouillement pour corriger espèce, état ou découpage"
+            >
+              Dépouiller
+            </button>
+          )}
           <button onClick={close}>Fermer</button>
         </div>
 

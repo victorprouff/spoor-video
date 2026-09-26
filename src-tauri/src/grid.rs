@@ -7,6 +7,8 @@ use crate::traps::EFFECTIVE_RECORDED_AT;
 
 #[derive(Debug, Default, serde::Deserialize)]
 pub struct GridFilter {
+    /// Une seule séquence : celle qu'on rouvre depuis l'onglet Vidéos pour la corriger.
+    pub sequence_id: Option<String>,
     pub trap_id: Option<String>,
     /// `unreviewed` | `reviewed` | `all` (défaut : `all`).
     pub review: Option<String>,
@@ -97,6 +99,11 @@ pub struct GridPage {
 pub fn where_clause(filter: &GridFilter) -> (String, Vec<Box<dyn ToSql>>) {
     let mut clauses = vec!["s.deleted_at IS NULL".to_string()];
     let mut params: Vec<Box<dyn ToSql>> = Vec::new();
+
+    if let Some(sequence_id) = &filter.sequence_id {
+        clauses.push("s.id = ?".into());
+        params.push(Box::new(sequence_id.clone()));
+    }
 
     if let Some(trap_id) = &filter.trap_id {
         clauses.push("s.trap_id = ?".into());
@@ -392,6 +399,22 @@ pub(crate) mod tests {
         assert_eq!(page.tiles.len(), 3);
         assert_eq!(page.unreviewed_total, 3);
         assert_eq!(page.tiles[0].duration_s, 300);
+    }
+
+    #[test]
+    fn filtre_sur_une_seule_sequence() {
+        let conn = db();
+        let first = page(&conn, filter()).unwrap().tiles[1].id.clone();
+        let page = page(
+            &conn,
+            GridFilter {
+                sequence_id: Some(first.clone()),
+                ..filter()
+            },
+        )
+        .unwrap();
+        assert_eq!(page.total, 1);
+        assert_eq!(page.tiles[0].id, first);
     }
 
     #[test]

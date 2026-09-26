@@ -371,6 +371,27 @@ Conventions Spoor, reprises telles quelles parce qu'elles ont fait leurs preuves
 - boîtes de dialogue sur `<dialog>` natif, jamais `window.confirm`, focus sur « Annuler » ;
 - panneau d'édition en colonne ancrée, le contenu n'est jamais démonté au repli.
 
+**Navigation, rangée par fréquence d'usage.** Au quotidien, deux onglets : **Statistiques**
+(l'écran d'ouverture) et **Vidéos**. Tout ce qui ne sert que rarement — dossier racine,
+passe manuelle, emplacement de la base, pièges, espèces, thème — vit dans **Réglages**,
+derrière une icône à droite de la barre. Six onglets de même rang rendaient l'application
+chargée alors que quatre d'entre eux ne servent qu'à l'import ou au paramétrage.
+
+**Dépouiller n'est un onglet que lorsqu'il y a du travail** : fichiers à indexer, vidéos
+dans un dossier non rattaché, vidéos écartées revenues, ou séquences pas encore
+dépouillées. L'onglet devient ainsi la notification — le bandeau « N fichiers attendent »
+qui s'affichait sur tous les écrans a disparu. Il réunit les deux temps d'un import :
+en tête, ce que l'import attend (bouton **Indexer**, compte rendu, dossiers non rattachés,
+vidéos écartées revenues, chacun affiché seulement s'il y a quelque chose à dire), puis
+la grille des séquences. Sa pastille dit d'abord les fichiers à indexer, sinon les
+séquences à dépouiller ; l'infobulle détaille le tout. L'onglet ne disparaît pas sous les
+yeux : on le garde tant qu'on y est.
+
+Corriger une séquence déjà dépouillée n'est pas un réglage : cela passe par l'onglet
+Vidéos : le lecteur porte un bouton **Dépouiller** qui rouvre le passage de la vidéo
+lue, même quand l'onglet est caché. Un bouton sur chaque ligne de la liste a été essayé :
+trop lourd, à côté de « Lire ».
+
 Le lecteur de l'onglet Vidéos se tient au clavier comme le dépouillement : flèches
 gauche et droite pour passer d'une vidéo à l'autre sans revenir à la liste, espace pour
 suspendre, `F` pour le plein écran, Maj+M pour le son, Échap pour sortir.

@@ -179,7 +179,7 @@ export function Stats({ onError }: { onError: (e: string | null) => void }) {
                   <p className="muted small">
                     {data.without_position} passage(s) absent(s) de ce graphique : leur piège n’a
                     pas de coordonnées, donc ni lever ni coucher calculables. Renseigne sa position
-                    dans l’onglet Pièges, puis « Appliquer aux vidéos ».
+                    dans Réglages → Pièges, puis « Appliquer aux vidéos ».
                   </p>
                 )}
                 <p className="muted small">
