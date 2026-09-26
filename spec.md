@@ -398,6 +398,9 @@ trop lourd, à côté de « Lire ».
 **Sobriété.** Le mode d'emploi d'un graphique sert une fois, puis encombre : il est
 replié sous « Comment lire ce graphique ». Reste visible ce qui change la lecture des
 chiffres affichés — passages absents faute de position, comptages bruts entre pièges.
+Dans le panneau des filtres, une explication utile tient dans une bulle « ? » qui ne
+s'ouvre qu'au survol ; chaque groupe posé porte une croix qui l'efface seul. Le choix
+« à dépouiller / dépouillées » n'apparaît pas dans les Statistiques, où il est sans objet.
 Tous les contrôles d'une ligne ont la même hauteur (`--control-h`) ; WebKit dessinant
 les listes déroulantes natives plus basses que les champs, elles sont redessinées.
 

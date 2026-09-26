@@ -111,7 +111,13 @@ export function Stats({ onError }: { onError: (e: string | null) => void }) {
 
   return (
     <div className="stack">
-      <Filters filter={filter} onChange={setFilter} traps={traps} species={species} />
+      <Filters
+        filter={filter}
+        onChange={setFilter}
+        traps={traps}
+        species={species}
+        showReview={false}
+      />
 
       {!data ? (
         <section className="panel">

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
 import { CONFIDENCES, SUN_PHASES } from '../api';
+import { Hint } from './Hint';
 import { SpeciesPicker } from './SpeciesPicker';
 import type { Confidence as Conf } from '../api';
 import type { Confidence, GridFilter, Species, Trap } from '../api';
@@ -74,7 +75,8 @@ export function Filters({
   extraCount = 0,
   onClear,
   durationLabel = 'Durée du passage',
-  durationHint = 'Une activité continue de deux heures se retrouve ici',
+  durationHint = 'Une activité continue de deux heures se retrouve ici.',
+  showReview = true,
 }: {
   filter: GridFilter;
   onChange: (f: GridFilter) => void;
@@ -88,6 +90,8 @@ export function Filters({
   onClear?: () => void;
   durationLabel?: string;
   durationHint?: string;
+  /** Le choix « à dépouiller / dépouillées » : sans objet pour les statistiques. */
+  showReview?: boolean;
 }) {
   // Une barre collée doit se fondre dans l'en-tête : pleine largeur, sans marge ni
   // coins arrondis. Le CSS seul ne sait pas dire « je suis collée ».
@@ -169,14 +173,16 @@ export function Filters({
           ))}
         </select>
 
-        <select
-          value={filter.review}
-          onChange={(e) => set('review', e.target.value as GridFilter['review'])}
-        >
-          <option value="all">Toutes</option>
-          <option value="unreviewed">À dépouiller</option>
-          <option value="reviewed">Dépouillées</option>
-        </select>
+        {showReview && (
+          <select
+            value={filter.review}
+            onChange={(e) => set('review', e.target.value as GridFilter['review'])}
+          >
+            <option value="all">Toutes</option>
+            <option value="unreviewed">À dépouiller</option>
+            <option value="reviewed">Dépouillées</option>
+          </select>
+        )}
 
         <SpeciesPicker
           species={species}
@@ -241,7 +247,10 @@ export function Filters({
       {open && (
         <div className="filters__panel">
           <fieldset>
-            <legend>Identification</legend>
+            <FilterLegend
+              label="Identification"
+              onClear={filter.confidence_min ? () => set('confidence_min', null) : undefined}
+            />
             <label className="inline">
               Confiance minimale
               <select
@@ -259,11 +268,10 @@ export function Filters({
           </fieldset>
 
           <fieldset>
-            <legend>Saison — mois toutes années confondues</legend>
-            <p className="muted small">
-              Comparer tous les mois de décembre entre eux, et non un hiver donné : c’est le
-              cœur de l’analyse d’une année sur l’autre.
-            </p>
+            <FilterLegend
+              label="Saison — mois toutes années confondues"
+              onClear={filter.months.length ? () => set('months', []) : undefined}
+            />
             <div className="chips">
               {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
                 <label key={m} className={filter.months.includes(m) ? 'chip chip--on' : 'chip'}>
@@ -282,16 +290,15 @@ export function Filters({
                   {s.label}
                 </button>
               ))}
-              {filter.months.length > 0 && (
-                <button className="small" onClick={() => set('months', [])}>
-                  Tous les mois
-                </button>
-              )}
             </div>
           </fieldset>
 
           <fieldset>
-            <legend>Lumière</legend>
+            <FilterLegend
+              label="Lumière"
+              hint="Calculée d’après la position du piège. Une séquence dont le piège n’a pas de position n’est retenue par aucun de ces filtres."
+              onClear={filter.sun_phases.length ? () => set('sun_phases', []) : undefined}
+            />
             <div className="chips">
               {SUN_PHASES.map((p) => (
                 <label
@@ -307,16 +314,20 @@ export function Filters({
                 </label>
               ))}
             </div>
-            <p className="muted small">
-              Jour et nuit sont calculés depuis les coordonnées du piège. Sans position, une
-              séquence n’est retenue par aucun de ces quatre filtres — on ne devine pas.
-            </p>
           </fieldset>
 
           {extra}
 
           <fieldset>
-            <legend>{durationLabel}</legend>
+            <FilterLegend
+              label={durationLabel}
+              hint={durationHint}
+              onClear={
+                filter.duration_min_s != null || filter.duration_max_s != null
+                  ? () => onChange({ ...filter, duration_min_s: null, duration_max_s: null, offset: 0 })
+                  : undefined
+              }
+            />
             <div className="row row--flush">
               <label className="inline">
                 Au moins
@@ -346,11 +357,39 @@ export function Filters({
                 />
                 min
               </label>
-              <span className="muted small">{durationHint}</span>
             </div>
           </fieldset>
         </div>
       )}
     </section>
+  );
+}
+/** Titre d'un groupe de filtres, avec sa bulle d'explication et de quoi l'effacer seul. */
+export function FilterLegend({
+  label,
+  hint,
+  onClear,
+}: {
+  label: string;
+  hint?: string;
+  /** Absent quand le critère n'est pas posé : rien à effacer. */
+  onClear?: () => void;
+}) {
+  return (
+    <legend>
+      {label}
+      {hint && <Hint>{hint}</Hint>}
+      {onClear && (
+        <button
+          type="button"
+          className="clear-one"
+          onClick={onClear}
+          title="Effacer ce filtre"
+          aria-label={`Effacer le filtre ${label}`}
+        >
+          ×
+        </button>
+      )}
+    </legend>
   );
 }

@@ -4,7 +4,7 @@ import { convertFileSrc } from '@tauri-apps/api/core';
 import { STATES, SUN_PHASES, listSpecies, listTraps, listVideos, setVideoPositions } from '../api';
 import type { Species, Trap, VideoFilter, VideoPage } from '../api';
 import { DeleteDialog } from '../components/DeleteDialog';
-import { EMPTY_FILTER, Filters } from '../components/Filters';
+import { EMPTY_FILTER, FilterLegend, Filters } from '../components/Filters';
 import { MapPicker } from '../components/MapPicker';
 import { VideoPlayer } from '../components/VideoPlayer';
 import { ViewControls, useDisplay, useThumbSize } from '../components/ViewControls';
@@ -113,12 +113,26 @@ export function Videos({
           (filter.unpositioned ? 1 : 0)
         }
         durationLabel="Durée de la vidéo"
-        durationHint="La durée du fichier, pas celle du passage"
+        durationHint="La durée du fichier, pas celle du passage."
         traps={traps}
         species={species}
         extra={
           <fieldset>
-            <legend>État du fichier</legend>
+            <FilterLegend
+              label="État du fichier"
+              onClear={
+                filter.file_states.length || filter.undated || filter.unpositioned
+                  ? () =>
+                      setFilter({
+                        ...filter,
+                        file_states: [],
+                        undated: null,
+                        unpositioned: null,
+                        offset: 0,
+                      })
+                  : undefined
+              }
+            />
             <div className="chips">
               {[
                 { value: 'present', label: 'Lisible' },
@@ -163,11 +177,6 @@ export function Videos({
                 Sans position
               </label>
             </div>
-            <p className="muted small">
-              Ici les filtres de date et d’heure portent sur <strong>la vidéo</strong>, pas sur le
-              début de son passage : chercher « entre 2 h et 3 h » rend les déclenchements de
-              cette tranche.
-            </p>
           </fieldset>
         }
       />

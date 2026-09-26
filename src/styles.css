@@ -1471,3 +1471,73 @@ input.tiny {
 .warn {
   color: var(--warn);
 }
+
+/* --- Bulle d'explication et effacement d'un filtre ----------------------- */
+
+.hint {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
+  margin-left: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1;
+  color: var(--muted);
+  border: 1px solid var(--muted);
+  border-radius: 50%;
+  cursor: help;
+  vertical-align: middle;
+}
+
+.hint:hover,
+.hint:focus-visible {
+  color: var(--ink);
+  border-color: var(--ink);
+}
+
+/* La bulle est une boîte : sa largeur est bornée, comme celle d'un dialogue. */
+.hint__bubble {
+  position: fixed;
+  z-index: 100;
+  width: 300px;
+  padding: 8px 10px;
+  font-size: 13px;
+  font-weight: 400;
+  line-height: 1.45;
+  color: var(--ink);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 6px 24px rgb(0 0 0 / 22%);
+}
+
+.filters__panel legend {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+/* Effacer un seul critère, sans toucher aux autres. */
+.clear-one {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  min-height: 0;
+  margin-left: 4px;
+  padding: 0;
+  font-size: 14px;
+  line-height: 1;
+  color: var(--muted);
+  background: transparent;
+  border: none;
+  border-radius: 50%;
+}
+
+.clear-one:hover {
+  color: var(--ink);
+  background: var(--border);
+}
