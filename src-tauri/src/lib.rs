@@ -5,6 +5,7 @@ mod deletions;
 mod export;
 mod grid;
 mod hash;
+mod location;
 mod media;
 mod pending;
 mod positions;
@@ -75,12 +76,25 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
-            // La base vit dans le dossier de données de l'application, jamais à côté
-            // des vidéos : le drive peut être débranché, la base doit rester lisible.
-            let dir = app.path().app_data_dir()?;
-            let db = Db::open(&dir)?;
-            log::info!("base ouverte : {}", db.path.display());
-            app.manage(db);
+            // La base vit par défaut dans le dossier de données de l'application, ou là
+            // où on l'a déplacée (voir `location`). Si elle est introuvable, l'interface
+            // ne montre que l'écran qui permet d'y remédier.
+            let loc = location::resolve(&location::home(&app.path().app_data_dir()?));
+            let loc = match location::open(&loc) {
+                Ok(db) => {
+                    log::info!("base ouverte : {}", db.path.display());
+                    if let Err(e) = app.asset_protocol_scope().allow_directory(loc.thumbs_dir(), false) {
+                        log::warn!("vignettes non autorisées à la lecture : {e}");
+                    }
+                    app.manage(db);
+                    loc
+                }
+                Err(e) => {
+                    log::error!("base non ouverte : {e}");
+                    location::DataLocation { error: Some(e), ..loc }
+                }
+            };
+            app.manage(loc);
 
             // ffmpeg est cherché une fois, au démarrage : d'abord embarqué dans
             // l'application, puis aux emplacements usuels (une app lancée depuis le
@@ -90,8 +104,7 @@ pub fn run() {
             // Lire une vidéo dans la fenêtre suppose d'ouvrir son dossier au protocole
             // `asset`. On n'ouvre que **la racine configurée**, et seulement si elle
             // existe : la webview n'a aucune raison de lire ailleurs sur le disque.
-            {
-                let db = app.state::<Db>();
+            if let Some(db) = app.try_state::<Db>() {
                 let conn = db.conn.lock().unwrap();
                 if let Ok(Some(root)) = settings::get(&conn, settings::ROOT_PATH) {
                     if let Err(e) = app.asset_protocol_scope().allow_directory(&root, true) {
@@ -105,6 +118,10 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             db_status,
             commands::app_state,
+            commands::data_location,
+            commands::move_data,
+            commands::use_data_dir,
+            commands::restart_app,
             commands::set_root_path,
             commands::link_folder_to_trap,
             commands::scan_root,

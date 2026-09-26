@@ -19,6 +19,7 @@ use crate::scan::{self, ScanReport};
 use crate::sequences::{self, RegroupReport, Sequence};
 use crate::species::{self, Species, SpeciesInput};
 use crate::traps::{self, Trap, TrapInput};
+use crate::location::{self, DataLocation};
 use crate::{media, settings};
 
 #[derive(serde::Serialize)]
@@ -88,6 +89,42 @@ pub fn set_root_path(
     Ok(())
 }
 
+// --- Emplacement de la base -----------------------------------------------
+
+#[tauri::command]
+pub fn data_location(loc: tauri::State<'_, DataLocation>) -> DataLocation {
+    loc.inner().clone()
+}
+
+/// Copie la base et les vignettes dans `dir` et l'y retient. L'original reste en place ;
+/// le changement prend effet au redémarrage (`restart_app`).
+#[tauri::command]
+pub fn move_data(
+    db: tauri::State<'_, Db>,
+    loc: tauri::State<'_, DataLocation>,
+    dir: String,
+) -> Result<(), DbError> {
+    let dest = PathBuf::from(dir);
+    location::copy_to(&db.conn.lock().unwrap(), &loc, &dest)?;
+    location::remember(&loc.home, &dest)
+}
+
+/// Retient `dir` comme emplacement sans rien copier : pour rouvrir une base existante,
+/// ou revenir à l'emplacement par défaut. Utilisable même quand la base est introuvable.
+#[tauri::command]
+pub fn use_data_dir(loc: tauri::State<'_, DataLocation>, dir: Option<String>) -> Result<(), DbError> {
+    let dest = dir.map(PathBuf::from).unwrap_or_else(|| loc.home.clone());
+    if dest != loc.home && !dest.join(location::DB_FILE).is_file() {
+        return Err(DbError::Other(format!("aucune base dans {}", dest.display())));
+    }
+    location::remember(&loc.home, &dest)
+}
+
+#[tauri::command]
+pub fn restart_app(app: tauri::AppHandle) {
+    app.restart();
+}
+
 /// Rattache un dossier de premier niveau à un piège : soit un piège existant,
 /// soit un nouveau piège portant le nom du dossier. Jamais fait automatiquement (§4).
 #[tauri::command]
@@ -124,11 +161,7 @@ pub fn link_folder_to_trap(
 /// Le suivi de progression viendra quand des lots réels auront montré ce qui est lent.
 #[tauri::command]
 pub async fn scan_root(app: tauri::AppHandle) -> Result<ScanReport, DbError> {
-    let thumbs_dir = app
-        .path()
-        .app_data_dir()
-        .map_err(|e| DbError::Other(e.to_string()))?
-        .join("thumbnails");
+    let thumbs_dir = app.state::<DataLocation>().thumbs_dir();
 
     // Le balayage est du disque et des sous-processus : le sortir du fil de l'interface
     // évite de figer la fenêtre pendant plusieurs minutes.

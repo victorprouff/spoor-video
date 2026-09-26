@@ -121,6 +121,20 @@ export type ScanReport = {
 };
 
 export const appState = () => invoke<AppState>('app_state');
+
+export type DataLocation = {
+  home: string;
+  dir: string;
+  is_default: boolean;
+  dev: boolean;
+  error: string | null;
+};
+
+export const dataLocation = () => invoke<DataLocation>('data_location');
+export const moveData = (dir: string) => invoke<void>('move_data', { dir });
+/** `null` : revenir à l'emplacement par défaut. */
+export const setDataDir = (dir: string | null) => invoke<void>('use_data_dir', { dir });
+export const restartApp = () => invoke<void>('restart_app');
 export const setRootPath = (path: string) => invoke<void>('set_root_path', { path });
 export const scanRoot = () => invoke<ScanReport>('scan_root');
 export const listRootFolders = () => invoke<RootFolder[]>('list_root_folders');

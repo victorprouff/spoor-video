@@ -29,10 +29,10 @@ Prérequis : Node, Rust, outils Xcode, **ffmpeg** (`brew install ffmpeg`).
 
 | | |
 |---|---|
-| `src-tauri/src/` | un module par domaine : `scan`, `sequences`, `annotations`, `grid`, `videos`, `stats`, `export`, `deletions`, `positions`, `pending`, `sun`, `traps`, `species`, `media`, `hash` |
+| `src-tauri/src/` | un module par domaine : `scan`, `sequences`, `annotations`, `grid`, `videos`, `stats`, `export`, `deletions`, `positions`, `pending`, `sun`, `traps`, `species`, `media`, `hash`, `location` |
 | `src-tauri/migrations/` | SQL numéroté, embarqué dans le binaire, appliqué au démarrage |
 | `src/views/` | un fichier par onglet ; `src/components/` pour le partagé |
-| Tests | **Rust uniquement** — 127, dont 8 d'intégration sur de vraies vidéos générées par ffmpeg. Pas de test front, pas d'ESLint. |
+| Tests | **Rust uniquement** — 134, dont 8 d'intégration sur de vraies vidéos générées par ffmpeg. Pas de test front, pas d'ESLint. |
 
 Six onglets : Statistiques (défaut), Dépouillement, Vidéos, Indexation, Pièges, Espèces.
 
@@ -53,7 +53,9 @@ Six onglets : Statistiques (défaut), Dépouillement, Vidéos, Indexation, Pièg
    n'a aucun effet rétroactif.
 7. **Suppressions** : corbeille du système, jamais d'effacement ; rien hors du dossier
    racine ; un échec ne marque pas la vidéo supprimée.
-8. **Français partout** : interface, commentaires, noms de tests. Le code technique
+8. **La base introuvable n'est jamais remplacée par une vide.** Elle peut vivre hors
+   du dossier de données (`location.rs`) ; en `tauri dev`, elle vit dans `dev/`.
+9. **Français partout** : interface, commentaires, noms de tests. Le code technique
    (types, champs SQL) reste en anglais.
 
 ## Vérifier son travail

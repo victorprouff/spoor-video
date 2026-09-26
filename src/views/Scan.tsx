@@ -3,6 +3,7 @@ import { open } from '@tauri-apps/plugin-dialog';
 
 import {
   appState,
+  dataLocation,
   discardedFiles,
   linkFolderToTrap,
   pendingVideos,
@@ -10,7 +11,8 @@ import {
   scanRoot,
   setRootPath,
 } from '../api';
-import type { AppState, DiscardedFile, PendingReport, ScanReport } from '../api';
+import type { AppState, DataLocation, DiscardedFile, PendingReport, ScanReport } from '../api';
+import { DataLocationPanel } from '../components/DataLocationPanel';
 import { formatDateTime } from '../format';
 
 export function Scan({
@@ -25,12 +27,14 @@ export function Scan({
   const [scanning, setScanning] = useState(false);
   const [pending, setPending] = useState<PendingReport | null>(null);
   const [discarded, setDiscarded] = useState<DiscardedFile[]>([]);
+  const [location, setLocation] = useState<DataLocation | null>(null);
 
   const refresh = useCallback(async () => {
     try {
       setState(await appState());
       setPending(await pendingVideos());
       setDiscarded(await discardedFiles());
+      setLocation(await dataLocation());
     } catch (e) {
       onError(String(e));
     }
@@ -188,6 +192,8 @@ export function Scan({
       )}
 
       {report && <Report report={report} traps={state?.traps ?? []} onLink={linkFolder} />}
+
+      {location && <DataLocationPanel location={location} onError={onError} />}
 
     </div>
   );

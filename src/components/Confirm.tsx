@@ -9,12 +9,14 @@ export function Confirm({
   title,
   body,
   confirmLabel,
+  destructive = true,
   onConfirm,
   onCancel,
 }: {
   title: string;
   body?: string;
   confirmLabel: string;
+  destructive?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
 }) {
@@ -35,7 +37,7 @@ export function Confirm({
           Annuler
         </button>
         <span className="app__spacer" />
-        <button className="destructive" onClick={onConfirm}>
+        <button className={destructive ? 'destructive' : 'primary'} onClick={onConfirm}>
           {confirmLabel}
         </button>
       </div>

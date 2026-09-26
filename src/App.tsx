@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from 'react';
 
-import { pendingVideos } from './api';
-import type { PendingReport } from './api';
+import { dataLocation, pendingVideos } from './api';
+import type { DataLocation, PendingReport } from './api';
+import { DataLocationPanel } from './components/DataLocationPanel';
 import { useTheme } from './theme';
 import { Grid } from './views/Grid';
 import { Scan } from './views/Scan';
@@ -28,6 +29,15 @@ export default function App() {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<PendingReport | null>(null);
   const [dismissed, setDismissed] = useState(false);
+  // Base introuvable au démarrage : rien d'autre ne peut fonctionner, on n'affiche que
+  // de quoi la retrouver.
+  const [missingBase, setMissingBase] = useState<DataLocation | null>(null);
+
+  useEffect(() => {
+    dataLocation()
+      .then((l) => setMissingBase(l.error ? l : null))
+      .catch(() => undefined);
+  }, []);
 
   const checkPending = useCallback(() => {
     pendingVideos()
@@ -51,6 +61,26 @@ export default function App() {
       window.removeEventListener('focus', onFocus);
     };
   }, [checkPending]);
+
+  if (missingBase) {
+    return (
+      <div className="app">
+        <header className="app__bar">
+          <span className="app__title">Spoor Vidéo</span>
+          <span className="app__spacer" />
+          <button onClick={toggle}>{theme === 'dark' ? 'Thème clair' : 'Thème sombre'}</button>
+        </header>
+        <main className="app__main stack">
+          {error && (
+            <div className="panel notice notice--danger">
+              <p className="danger">{error}</p>
+            </div>
+          )}
+          <DataLocationPanel location={missingBase} onError={setError} />
+        </main>
+      </div>
+    );
+  }
 
   const go = (id: Tab) => {
     setError(null);

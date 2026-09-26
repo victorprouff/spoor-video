@@ -59,14 +59,16 @@ L'application est construite sur la machine, donc Gatekeeper ne la bloque pas. E
 trouve ffmpeg dans Homebrew. Sur un autre Mac, il faudrait d'abord embarquer ffmpeg
 (voir l'avertissement plus haut).
 
-> ⚠️ L'application installée et `npm run tauri:dev` partagent **la même base**. Une
-> séance de développement travaille donc sur les vraies données, et une nouvelle
-> migration s'y applique dès le premier lancement en développement.
-
 ## Où vivent les données
 
-- **Base** : `~/Library/Application Support/fr.victorprouff.spoorvideo/spoor-video.sqlite`
-  — jamais à côté des vidéos, pour rester lisible disque débranché.
+- **Base et vignettes** : par défaut dans
+  `~/Library/Application Support/fr.victorprouff.spoorvideo/` (`spoor-video.sqlite` et
+  `thumbnails/`). Elles se déplacent ensemble où l'on veut, par exemple à côté des vidéos,
+  depuis l'onglet **Indexation → Base de données**. Déplacer copie et laisse l'original en
+  place. Si la base est introuvable au démarrage (disque débranché), l'application le dit
+  et ne crée jamais de base vide à la place (voir `spec.md` §4).
+- **En développement** (`npm run tauri:dev`), tout vit à part, dans le sous-dossier
+  `dev/` : on ne touche jamais aux données de l'application installée.
 - **Journal** : `~/Library/Logs/fr.victorprouff.spoorvideo/spoor-video.log`.
 - **Vidéos** : dans le dossier racine que tu configures, **indexées en place**.
   L'application ne les copie ni ne les déplace, et ne les supprime que sur demande

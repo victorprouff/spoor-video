@@ -28,7 +28,7 @@ Philosophie reprise de Spoor, et non négociable : **léger et simple, pas de su
 | Exécution | **100 % local**, mono-poste, mono-utilisateur. Aucun serveur, aucun compte. |
 | Réseau | **Une seule exception** : les fonds de carte OpenStreetMap. Sans connexion, la carte reste grise et les coordonnées restent saisissables au clavier. Tout le reste fonctionne hors ligne. |
 | Runtime | **Tauri** (cœur Rust, front React + TypeScript + Vite) |
-| Base | **SQLite**, un fichier unique dans le dossier de données de l'application |
+| Base | **SQLite**, un fichier unique, par défaut dans le dossier de données de l'application, **déplaçable** où l'on veut (§4) |
 | Rangement | **Un dossier racine**, contenant **un dossier par caméra**. L'arborescence porte le rattachement au piège. |
 | Fichiers vidéo | **Indexés en place**, jamais copiés ni déplacés. **Supprimés uniquement sur demande explicite** (§6). |
 | À dépouiller | Toute vidéo présente sous la racine et **absente de la base** est en attente de catégorisation. |
@@ -86,7 +86,7 @@ déplacement est important, créer un nouveau piège reste plus juste.
 - `duration_s`, `width`, `height`, `fps`
 - `latitude`, `longitude`, `altitude_m` — **position propre à la capture**, copiée du
   piège à l'indexation puis ajustable ; `position_manual` empêche toute réécriture
-- `thumbnail_path` — vignette extraite par ffmpeg, dans les données de l'application
+- `thumbnail_path` — vignette extraite par ffmpeg, dans le dossier `thumbnails/` voisin de la base
 - `sequence_id`
 - `file_state` — `present` | `purged` | `missing` (voir §6)
 - `file_removed_at`, `file_removed_reason`
@@ -167,6 +167,32 @@ hérite de ce piège. Plus aucune question de rattachement à l'import.
 Un dossier inconnu apparaît comme tel dans le compte rendu et attend que je le rattache
 à un piège existant ou que j'en crée un — jamais de piège créé en silence sur une faute
 de frappe dans un nom de dossier.
+
+### Emplacement de la base
+
+La base et ses vignettes vivent ensemble dans un même dossier. Par défaut, c'est le
+dossier de données de l'application ; on peut les **déplacer n'importe où**, par exemple
+à côté de la racine des vidéos, pour qu'elles voyagent et se sauvegardent avec elles. Le
+choix est retenu dans `location.json`, qui reste dans le dossier de données : la base ne
+peut pas dire elle-même où elle est.
+
+- **Déplacer copie**, par `VACUUM INTO` (cohérent malgré le WAL), puis redémarre sur la
+  copie. L'original reste en place : on ne le supprime qu'après avoir vérifié la copie.
+  On ne copie jamais par-dessus une base existante : on l'ouvre.
+- **Ouvrir une autre base** ne copie rien, et **revenir à l'emplacement par défaut** non
+  plus.
+- **Une base introuvable n'est jamais remplacée par une base vide** : disque débranché,
+  dossier renommé ou `location.json` illisible, l'application ne montre que l'écran qui
+  permet d'y remédier. Créer une base neuve ferait croire que tout le travail a disparu.
+- Les vignettes sont enregistrées par chemin absolu ; à l'ouverture, elles sont
+  rattachées au dossier courant.
+- À éviter : placer la base **dans** la racine, où son dossier passerait pour un piège.
+  Un dossier synchronisé (kDrive) convient, à condition de n'ouvrir la base que depuis un
+  seul Mac à la fois.
+
+En développement (`tauri dev`), tout vit dans le sous-dossier `dev/` du dossier de
+données, avec son propre `location.json` : une séance de travail ne touche jamais la
+base de l'application installée.
 
 ### Règle fondatrice
 
