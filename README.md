@@ -17,6 +17,7 @@ npm run tauri:dev
 |---|---|
 | `npm run tauri:dev` | lance l'application (Vite + fenêtre Tauri) |
 | `npm run tauri:build` | produit l'application installable |
+| `npm run installer` | construit et installe l'application dans `/Applications` |
 | `npm run typecheck` | vérifie le TypeScript |
 | `cargo test` (dans `src-tauri/`) | tests Rust, dont les migrations |
 
@@ -27,6 +28,40 @@ Prérequis : Node, Rust, les outils en ligne de commande Xcode, et **ffmpeg**
 > les ressources de l'app, puis dans `/opt/homebrew/bin`, `/usr/local/bin`, `/usr/bin`
 > et enfin le `PATH`. L'embarquer reste à faire avant toute distribution
 > (`spec.md` §4 le prévoit).
+
+## Installer et mettre à jour l'application
+
+L'application s'installe sur le Mac depuis les sources. Aucun `.dmg`, aucun
+téléchargement.
+
+```bash
+npm run installer -- patch
+```
+
+La commande :
+
+1. passe à la version suivante si on lui en donne une : `patch` (0.1.0 → 0.1.1),
+   `minor` (0.1.0 → 0.2.0) ou `major` (0.1.0 → 1.0.0). Sans argument
+   (`npm run installer`), elle réinstalle la version courante ;
+2. construit l'application en mode release. Il faut compter environ 3 minutes la
+   première fois, moins ensuite ;
+3. ferme l'application si elle est ouverte ;
+4. remplace `/Applications/Spoor Vidéo.app`.
+
+Pour mettre à jour après une séance de travail, il suffit de la relancer. **Les données
+ne sont pas touchées** : elles vivent hors de l'application (voir plus bas).
+
+La version n'est écrite qu'à un seul endroit, dans `package.json`, que `tauri.conf.json`
+reprend. Le numéro de `Cargo.toml` n'est pas utilisé. La commande ne crée ni commit ni
+tag git : on committe la nouvelle version soi-même.
+
+L'application est construite sur la machine, donc Gatekeeper ne la bloque pas. Elle
+trouve ffmpeg dans Homebrew. Sur un autre Mac, il faudrait d'abord embarquer ffmpeg
+(voir l'avertissement plus haut).
+
+> ⚠️ L'application installée et `npm run tauri:dev` partagent **la même base**. Une
+> séance de développement travaille donc sur les vraies données, et une nouvelle
+> migration s'y applique dès le premier lancement en développement.
 
 ## Où vivent les données
 

@@ -10,7 +10,8 @@
     "tauri": "tauri",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "installer": "scripts/installer.sh"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",

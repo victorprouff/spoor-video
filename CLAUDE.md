@@ -17,7 +17,11 @@ Le contexte repris d'elle est dans [`SPOOR-CONTEXTE.md`](./SPOOR-CONTEXTE.md).
 npm run tauri:dev      # lance l'application (Vite + fenêtre Tauri)
 npm run typecheck      # tsc --noEmit
 cd src-tauri && cargo test
+npm run installer      # construit et remplace /Applications/Spoor Vidéo.app
+npm run installer -- patch   # idem, en passant d'abord à la version suivante
 ```
+
+La version n'est écrite que dans `package.json` (`tauri.conf.json` y renvoie).
 
 Prérequis : Node, Rust, outils Xcode, **ffmpeg** (`brew install ffmpeg`).
 
