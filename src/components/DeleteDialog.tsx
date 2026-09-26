@@ -26,11 +26,15 @@ function humanBytes(bytes: number): string {
  */
 export function DeleteDialog({
   sequenceIds,
+  videoIds: givenVideoIds,
   onDone,
   onCancel,
   onError,
 }: {
-  sequenceIds: string[];
+  /** Les séquences choisies au dépouillement… */
+  sequenceIds?: string[];
+  /** …ou les vidéos choisies une à une, dans l'onglet Vidéos. */
+  videoIds?: string[];
   onDone: (report: DeleteReport, mode: 'trace' | 'purge') => void;
   onCancel: () => void;
   onError: (e: string | null) => void;
@@ -47,13 +51,13 @@ export function DeleteDialog({
   useEffect(() => {
     ref.current?.showModal();
     cancelRef.current?.focus();
-    videosOfSequences(sequenceIds)
+    (givenVideoIds ? Promise.resolve(givenVideoIds) : videosOfSequences(sequenceIds ?? []))
       .then(async (ids) => {
         setVideoIds(ids);
         setPreview(await previewDeletion(ids));
       })
       .catch((e) => onError(String(e)));
-  }, [sequenceIds, onError]);
+  }, [sequenceIds, givenVideoIds, onError]);
 
   const run = async () => {
     if (!videoIds) return;

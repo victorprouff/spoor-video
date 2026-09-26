@@ -129,16 +129,13 @@ pub fn preview(conn: &Connection, video_ids: &[String]) -> Result<DeletePreview,
 
     let mut sequences = std::collections::HashSet::new();
     for (_, file_path, _, size, state, sequence_id) in &rows {
-        if state == "present" {
+        if !on_disk(state, file_path) {
+            p.already_gone += 1;
+        } else if root.as_ref().is_some_and(|r| !Path::new(file_path).starts_with(r)) {
+            p.outside_root += 1;
+        } else {
             p.present_files += 1;
             p.total_bytes += size.unwrap_or(0) as u64;
-        } else {
-            p.already_gone += 1;
-        }
-        if let Some(root) = &root {
-            if !Path::new(file_path).starts_with(root) {
-                p.outside_root += 1;
-            }
         }
         if let Some(id) = sequence_id {
             sequences.insert(id.clone());
@@ -185,7 +182,7 @@ pub fn delete_keeping_trace(
     let reason = reason.map(|r| r.trim()).filter(|r| !r.is_empty());
 
     for (id, file_path, file_name, _, state, _) in rows {
-        if state == "present" {
+        if on_disk(&state, &file_path) {
             match disposer.dispose(Path::new(&file_path)) {
                 Ok(()) => report.trashed += 1,
                 Err(e) => {
@@ -246,7 +243,7 @@ pub fn delete_without_trace(
     let mut disposed: Vec<(String, String, String)> = Vec::new(); // (id, empreinte, chemin)
 
     for (id, file_path, file_name, _, state, _) in &rows {
-        if state == "present" {
+        if on_disk(state, file_path) {
             match disposer.dispose(Path::new(file_path)) {
                 Ok(()) => report.trashed += 1,
                 Err(e) => {
@@ -308,6 +305,15 @@ pub fn delete_without_trace(
     Ok(report)
 }
 
+/// Y a-t-il un fichier à envoyer à la corbeille ?
+///
+/// Une vidéo encore `present` dont le fichier n'existe plus — hors de la racine, la
+/// passe d'indexation ne l'a pas cherchée (§6 cas c) — n'a rien à toucher sur le disque.
+/// Sans cela, sa ligne serait insupprimable, et son piège avec elle.
+fn on_disk(state: &str, file_path: &str) -> bool {
+    state == "present" && Path::new(file_path).exists()
+}
+
 /// Écarte ce qui ne doit pas être touché : un fichier hors du dossier racine.
 ///
 /// Une ligne peut porter un chemin devenu faux (racine changée, base recopiée).
@@ -326,7 +332,7 @@ fn guarded_rows(
     Ok(rows
         .into_iter()
         .filter(|(_, file_path, file_name, _, state, _)| {
-            if state != "present" {
+            if !on_disk(state, file_path) {
                 return true; // rien à toucher sur le disque
             }
             match &root {
@@ -540,6 +546,38 @@ mod tests {
     }
 
     #[test]
+    fn une_video_hors_racine_dont_le_fichier_n_existe_plus_se_supprime() {
+        // Le cas des vidéos d'essai : indexées depuis un dossier disparu depuis, restées
+        // `present` faute d'avoir été cherchées. Elles bloquaient aussi leur piège.
+        let mut f = db();
+        let path = video(&f, "v1", false);
+        std::fs::remove_file(&path).unwrap();
+        let bin = FakeTrash::new();
+
+        let p = preview(&f.conn, &["v1".into()]).unwrap();
+        assert_eq!((p.present_files, p.already_gone, p.outside_root), (0, 1, 0));
+
+        let r = delete_without_trace(&mut f.conn, &["v1".into()], &bin).unwrap();
+        assert!(r.errors.is_empty(), "{:?}", r.errors);
+        assert_eq!((r.trashed, r.already_gone, r.rows_removed), (0, 1, 1));
+        assert!(bin.disposed.borrow().is_empty());
+        assert_eq!(state_of(&f.conn, "v1"), None);
+    }
+
+    #[test]
+    fn une_video_present_dont_le_fichier_manque_garde_sa_trace() {
+        let f = db();
+        let path = video(&f, "v1", true);
+        std::fs::remove_file(&path).unwrap();
+        let bin = FakeTrash::new();
+
+        let r = delete_keeping_trace(&f.conn, &["v1".into()], None, &bin).unwrap();
+        assert!(r.errors.is_empty(), "{:?}", r.errors);
+        assert_eq!(r.already_gone, 1);
+        assert_eq!(state_of(&f.conn, "v1").as_deref(), Some("purged"));
+    }
+
+    #[test]
     fn un_echec_de_corbeille_ne_marque_pas_la_video_supprimee() {
         let f = db();
         let path = video(&f, "v1", true);
@@ -600,8 +638,8 @@ mod tests {
 
         let p = preview(&f.conn, &["v1".into(), "v2".into(), "v3".into()]).unwrap();
         assert_eq!(p.videos, 3);
-        assert_eq!(p.present_files, 3);
-        assert_eq!(p.total_bytes, 57);
+        assert_eq!(p.present_files, 2, "le fichier hors racine ne partira pas");
+        assert_eq!(p.total_bytes, 38);
         assert_eq!(p.sequences, 1);
         assert_eq!(p.reviewed_sequences, 1, "la séquence est dépouillée");
         assert_eq!(p.species_annotations, 1);

@@ -170,7 +170,9 @@ pub fn delete(conn: &Connection, id: &str) -> Result<(), DbError> {
     )?;
     if videos > 0 {
         return Err(DbError::Other(format!(
-            "{videos} vidéo(s) sont rattachées à ce piège : le désactiver plutôt que le supprimer"
+            "{videos} vidéo(s) sont rattachées à ce piège, y compris celles supprimées en \
+             gardant la trace. Pour le supprimer, supprime-les sans trace (onglet Vidéos, \
+             filtré sur ce piège) ; pour garder leurs données, désactive-le plutôt"
         )));
     }
     conn.execute(

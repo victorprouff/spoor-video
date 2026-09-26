@@ -32,7 +32,7 @@ Prérequis : Node, Rust, outils Xcode, **ffmpeg** (`brew install ffmpeg`).
 | `src-tauri/src/` | un module par domaine : `scan`, `sequences`, `annotations`, `grid`, `videos`, `stats`, `export`, `deletions`, `positions`, `pending`, `sun`, `traps`, `species`, `media`, `hash`, `location` |
 | `src-tauri/migrations/` | SQL numéroté, embarqué dans le binaire, appliqué au démarrage |
 | `src/views/` | un fichier par onglet ; `src/components/` pour le partagé |
-| Tests | **Rust uniquement** — 134, dont 8 d'intégration sur de vraies vidéos générées par ffmpeg. Pas de test front, pas d'ESLint. |
+| Tests | **Rust uniquement** — 136, dont 8 d'intégration sur de vraies vidéos générées par ffmpeg. Pas de test front, pas d'ESLint. |
 
 Six onglets : Statistiques (défaut), Dépouillement, Vidéos, Indexation, Pièges, Espèces.
 

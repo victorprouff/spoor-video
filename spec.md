@@ -287,6 +287,23 @@ l'interface l'indique par une tuile grisée plutôt que par une vignette cassée
 C'est ici l'usage courant : **par défaut, dépouiller c'est garder la trace.** Le cas (a)
 est réservé à ce qui n'a rien à dire.
 
+### Où supprimer
+
+Depuis le **Dépouillement** (des séquences entières) ou l'onglet **Vidéos** (une ou
+plusieurs vidéos, choisies une à une ou toutes celles du filtre affiché). Même boîte de
+confirmation, même choix entre (a) et (b).
+
+Une vidéo encore marquée `present` dont le fichier n'existe plus n'a rien à toucher sur
+le disque : elle se supprime comme une vidéo déjà disparue, **même hors de la racine**.
+C'était le cas de vidéos d'essai indexées depuis un dossier supprimé depuis : la passe ne
+les cherchait pas (hors racine), la suppression les refusait (hors racine), et leur piège
+devenait insupprimable. La garde « rien hors de la racine » protège les fichiers ; là où
+il n'y a plus de fichier, elle n'a rien à protéger.
+
+Un piège ne se supprime que s'il n'a plus aucune vidéo, **y compris celles supprimées
+avec trace** : leurs lignes le citent encore. Pour le supprimer, on supprime ses vidéos
+sans trace ; pour garder leurs données, on le désactive.
+
 ### c. Fichier disparu hors de l'application
 
 Vidéo supprimée à la main dans le Finder, disque débranché, dossier renommé.

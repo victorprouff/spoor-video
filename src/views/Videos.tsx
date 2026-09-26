@@ -3,6 +3,7 @@ import { convertFileSrc } from '@tauri-apps/api/core';
 
 import { STATES, SUN_PHASES, listSpecies, listTraps, listVideos, setVideoPositions } from '../api';
 import type { Species, Trap, VideoFilter, VideoPage } from '../api';
+import { DeleteDialog } from '../components/DeleteDialog';
 import { EMPTY_FILTER, Filters } from '../components/Filters';
 import { MapPicker } from '../components/MapPicker';
 import { VideoPlayer } from '../components/VideoPlayer';
@@ -42,6 +43,8 @@ export function Videos({ onError }: { onError: (e: string | null) => void }) {
   const [thumbSize, setThumbSize] = useThumbSize('videos', 220);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [positioning, setPositioning] = useState(false);
+  const [deleting, setDeleting] = useState<string[] | null>(null);
+  const [deleteNote, setDeleteNote] = useState<string | null>(null);
   const [lat, setLat] = useState<number | null>(null);
   const [lng, setLng] = useState<number | null>(null);
 
@@ -401,8 +404,47 @@ export function Videos({ onError }: { onError: (e: string | null) => void }) {
           >
             Définir la position…
           </button>
+          <button onClick={() => setSelected(new Set(rows.map((r) => r.id)))}>
+            Tout sélectionner ({rows.length})
+          </button>
           <span className="app__spacer" />
+          <button className="destructive" onClick={() => setDeleting([...selected])}>
+            Supprimer…
+          </button>
           <button onClick={() => setSelected(new Set())}>Annuler</button>
+        </div>
+      )}
+
+      {deleting && (
+        <DeleteDialog
+          videoIds={deleting}
+          onCancel={() => setDeleting(null)}
+          onError={onError}
+          onDone={(r, mode) => {
+            setDeleting(null);
+            setSelected(new Set());
+            void refresh();
+            const parts = [`${r.trashed} fichier(s) à la corbeille`];
+            if (mode === 'purge') parts.push(`${r.rows_removed} ligne(s) supprimée(s)`);
+            if (r.already_gone) parts.push(`${r.already_gone} déjà absent(s)`);
+            if (r.sequences_removed) parts.push(`${r.sequences_removed} séquence(s) vidée(s)`);
+            setDeleteNote(parts.join(' · '));
+            if (r.errors.length) onError(r.errors.join('\n'));
+          }}
+        />
+      )}
+
+      {deleteNote && (
+        <div className="panel notice">
+          <p>
+            {deleteNote}{' '}
+            <span className="muted small">
+              — récupérable dans la corbeille tant qu’elle n’est pas vidée.
+            </span>{' '}
+            <button className="small" onClick={() => setDeleteNote(null)}>
+              Fermer
+            </button>
+          </p>
         </div>
       )}
 
