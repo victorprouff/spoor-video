@@ -881,6 +881,12 @@ button.small {
   margin-bottom: 8px;
 }
 
+/* Les saisons sont des raccourcis, pas des mois de plus : un trait les en sépare. */
+.seasons {
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+
 .chips .chip {
   cursor: pointer;
   user-select: none;

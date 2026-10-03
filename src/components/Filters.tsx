@@ -157,13 +157,6 @@ export function Filters({
       className={stuck ? 'panel stack filters__bar filters__bar--stuck' : 'panel stack filters__bar'}
     >
       <div className="row row--flush filters">
-        <input
-          className="search"
-          placeholder="Nom de fichier…"
-          value={filter.query ?? ''}
-          onChange={(e) => set('query', e.target.value || null)}
-        />
-
         <select value={filter.trap_id ?? ''} onChange={(e) => set('trap_id', e.target.value || null)}>
           <option value="">Tous les pièges</option>
           {traps.map((t) => (
@@ -284,7 +277,7 @@ export function Filters({
                 </label>
               ))}
             </div>
-            <div className="row row--flush">
+            <div className="row row--flush seasons">
               {SEASONS.map((s) => (
                 <button key={s.label} className="small" onClick={() => set('months', s.months)}>
                   {s.label}
@@ -358,6 +351,19 @@ export function Filters({
                 min
               </label>
             </div>
+          </fieldset>
+
+          <fieldset>
+            <FilterLegend
+              label="Nom de fichier"
+              onClear={filter.query ? () => set('query', null) : undefined}
+            />
+            <input
+              className="search"
+              placeholder="IMG_0042, DSCF…"
+              value={filter.query ?? ''}
+              onChange={(e) => set('query', e.target.value || null)}
+            />
           </fieldset>
         </div>
       )}
