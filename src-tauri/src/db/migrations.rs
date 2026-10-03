@@ -43,6 +43,11 @@ const MIGRATIONS: &[(i64, &str, &str)] = &[
         "purged_path",
         include_str!("../../migrations/007_purged_path.sql"),
     ),
+    (
+        8,
+        "video_favorite",
+        include_str!("../../migrations/008_video_favorite.sql"),
+    ),
 ];
 
 pub fn apply(conn: &Connection) -> Result<(), DbError> {

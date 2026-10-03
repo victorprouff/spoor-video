@@ -504,6 +504,15 @@ pub fn list_videos(db: tauri::State<'_, Db>, filter: VideoFilter) -> Result<Vide
     videos::page(&db.conn.lock().unwrap(), filter)
 }
 
+#[tauri::command]
+pub fn set_video_favorite(
+    db: tauri::State<'_, Db>,
+    video_ids: Vec<String>,
+    favorite: bool,
+) -> Result<usize, DbError> {
+    videos::set_favorite(&db.conn.lock().unwrap(), &video_ids, favorite)
+}
+
 /// Combien de vidéos prendraient la position actuelle du piège.
 #[tauri::command]
 pub fn trap_position_candidates(

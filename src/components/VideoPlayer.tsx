@@ -34,6 +34,8 @@ export function VideoPlayer({
   onNext,
   position,
   onReview,
+  favorite,
+  onToggleFavorite,
 }: {
   filePath: string;
   title: string;
@@ -46,6 +48,9 @@ export function VideoPlayer({
   position?: string;
   /** Rouvre le passage de la vidéo au dépouillement, pour le corriger. */
   onReview?: () => void;
+  /** État favori de la vidéo affichée ; le bouton n'apparaît que si on peut le changer. */
+  favorite?: boolean;
+  onToggleFavorite?: () => void;
 }) {
   const ref = useRef<HTMLDialogElement>(null);
   const [muted, setMuted] = useState(storedMuted);
@@ -106,6 +111,12 @@ export function VideoPlayer({
         e.preventDefault();
         return full ? toggleFull() : close();
       }
+      // Avant « F » seul : le test de la touche ignore la casse, Maj+F ouvrirait sinon
+      // le plein écran au lieu de marquer la vidéo.
+      if (e.shiftKey && e.key.toLowerCase() === 'f') {
+        e.preventDefault();
+        return onToggleFavorite?.();
+      }
       if (e.key.toLowerCase() === 'f') {
         e.preventDefault();
         return toggleFull();
@@ -117,7 +128,7 @@ export function VideoPlayer({
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [close, full, onNext, onPrev, toggleFull]);
+  }, [close, full, onNext, onPrev, onToggleFavorite, toggleFull]);
 
   return (
     <dialog
@@ -148,6 +159,16 @@ export function VideoPlayer({
           <button onClick={() => setMuted((m) => !m)} title="Maj+M">
             {muted ? 'Son coupé' : 'Son actif'}
           </button>
+          {onToggleFavorite && (
+            <button
+              className={favorite ? 'star-button star-button--on' : 'star-button'}
+              onClick={onToggleFavorite}
+              aria-pressed={!!favorite}
+              title="Maj+F"
+            >
+              {favorite ? '★ Favorite' : '☆ Favorite'}
+            </button>
+          )}
           <button onClick={toggleFull} title="F">
             {full ? 'Quitter le plein écran' : 'Plein écran'}
           </button>

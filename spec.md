@@ -366,6 +366,13 @@ déclenchements de cette tranche, et non les passages commencés avant minuit. U
 hors séquence (sans date exploitable) y reste visible, là où les vues par séquence la
 laissent forcément de côté.
 
+**Favorites.** Une étoile posée à la main sur une **vidéo** (pas sur la séquence : dans un
+passage de cinq déclenchements, c'est souvent un seul qui vaut d'être revu). Elle se pose
+depuis la liste, la grille (au survol), le lecteur, ou sur toute une sélection ; le filtre
+« Favorites seulement » de la vue vidéo les retrouve. Stockée en `videos.favorite_at`
+(migration 008) : la date où elle a été posée reste connue, et remarquer une favorite ne
+la réécrit pas.
+
 **Recherche.** Filtres combinables : pièges, espèces (OU), confiance minimale,
 plage de dates, mois toutes années, plage horaire, jour/nuit, durée de séquence,
 état (`empty`, non dépouillé…), nom de fichier.
@@ -422,7 +429,8 @@ les listes déroulantes natives plus basses que les champs, elles sont redessin�
 
 Le lecteur de l'onglet Vidéos se tient au clavier comme le dépouillement : flèches
 gauche et droite pour passer d'une vidéo à l'autre sans revenir à la liste, espace pour
-suspendre, `F` pour le plein écran, Maj+M pour le son, Échap pour sortir.
+suspendre, `F` pour le plein écran, Maj+M pour le son, Maj+F pour mettre ou retirer
+la vidéo des favorites, Échap pour sortir.
 
 Le plein écran **ne passe pas par l'API du navigateur** : WKWebView, qui affiche
 l'application, n'expose pas `requestFullscreen` — le clic ne faisait rien du tout. C'est

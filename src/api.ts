@@ -409,6 +409,7 @@ export type VideoRow = {
   species: string[];
   species_colors: (string | null)[];
   sequence_size: number;
+  favorite: boolean;
 };
 
 export type VideoPage = {
@@ -425,10 +426,14 @@ export type VideoFilter = GridFilter & {
   file_states: string[];
   undated: boolean | null;
   unpositioned: boolean | null;
+  /** `true` ne garde que les favorites. */
+  favorite: boolean | null;
   sort: string;
 };
 
 export const listVideos = (filter: VideoFilter) => invoke<VideoPage>('list_videos', { filter });
+export const setVideoFavorite = (videoIds: string[], favorite: boolean) =>
+  invoke<number>('set_video_favorite', { videoIds, favorite });
 
 export const gridPage = (filter: GridFilter) => invoke<GridPage>('grid_page', { filter });
 export const annotateSequences = (sequenceIds: string[], annotation: Annotation) =>

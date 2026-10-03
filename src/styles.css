@@ -12,6 +12,7 @@
   --danger: #a4402f;
   --warn: #9a6b1f;
   --ok: #4a7a52;
+  --star: #c48a12;
 
   --radius: 8px;
   --gap: 12px;
@@ -36,6 +37,7 @@
   --danger: #d1705d;
   --warn: #c79a4a;
   --ok: #7ba37a;
+  --star: #e3b341;
 
   color-scheme: dark;
 }
@@ -52,6 +54,7 @@
     --danger: #d1705d;
     --warn: #c79a4a;
     --ok: #7ba37a;
+    --star: #e3b341;
 
     color-scheme: dark;
   }
@@ -583,6 +586,40 @@ button.small {
 .tile__warn {
   top: 5px;
   left: 5px;
+}
+
+/* Étoile des favoris : toujours visible quand elle est posée, au survol sinon — une
+   rangée d'étoiles vides sur chaque vignette serait du bruit. */
+.tile__star {
+  position: absolute;
+  bottom: 5px;
+  right: 5px;
+  padding: 0 6px;
+  font-size: 1.05em;
+  line-height: 1.5;
+  color: #fff;
+  background: rgb(0 0 0 / 65%);
+  border-radius: 10px;
+  opacity: 0;
+}
+
+.tile:hover .tile__star,
+.tile__star:focus-visible,
+.tile__star--on {
+  opacity: 1;
+}
+
+.tile__star--on {
+  color: var(--star);
+}
+
+.star-button {
+  color: var(--muted);
+}
+
+.star-button--on {
+  color: var(--star);
+  border-color: var(--star);
 }
 
 .tile__meta {

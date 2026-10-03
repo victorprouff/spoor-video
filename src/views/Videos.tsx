@@ -1,7 +1,15 @@
 import { useCallback, useEffect, useState } from 'react';
 import { convertFileSrc } from '@tauri-apps/api/core';
 
-import { STATES, SUN_PHASES, listSpecies, listTraps, listVideos, setVideoPositions } from '../api';
+import {
+  STATES,
+  SUN_PHASES,
+  listSpecies,
+  listTraps,
+  listVideos,
+  setVideoFavorite,
+  setVideoPositions,
+} from '../api';
 import type { Species, Trap, VideoFilter, VideoPage } from '../api';
 import { DeleteDialog } from '../components/DeleteDialog';
 import { EMPTY_FILTER, FilterLegend, Filters } from '../components/Filters';
@@ -15,6 +23,7 @@ const EMPTY_VIDEO_FILTER: VideoFilter = {
   file_states: [],
   undated: null,
   unpositioned: null,
+  favorite: null,
   sort: 'date',
 };
 
@@ -82,6 +91,16 @@ export function Videos({
     }
   }, [filter, onError]);
 
+  const setFavorite = async (ids: string[], favorite: boolean) => {
+    onError(null);
+    try {
+      await setVideoFavorite(ids, favorite);
+      await refresh();
+    } catch (e) {
+      onError(String(e));
+    }
+  };
+
   useEffect(() => {
     void refresh();
   }, [refresh]);
@@ -110,74 +129,93 @@ export function Videos({
         extraCount={
           (filter.file_states.length ? 1 : 0) +
           (filter.undated ? 1 : 0) +
-          (filter.unpositioned ? 1 : 0)
+          (filter.unpositioned ? 1 : 0) +
+          (filter.favorite ? 1 : 0)
         }
         durationLabel="Durée de la vidéo"
         durationHint="La durée du fichier, pas celle du passage."
         traps={traps}
         species={species}
         extra={
-          <fieldset>
-            <FilterLegend
-              label="État du fichier"
-              onClear={
-                filter.file_states.length || filter.undated || filter.unpositioned
-                  ? () =>
-                      setFilter({
-                        ...filter,
-                        file_states: [],
-                        undated: null,
-                        unpositioned: null,
-                        offset: 0,
-                      })
-                  : undefined
-              }
-            />
-            <div className="chips">
-              {[
-                { value: 'present', label: 'Lisible' },
-                { value: 'purged', label: 'Supprimée' },
-                { value: 'missing', label: 'Disparue' },
-              ].map((s) => (
-                <label
-                  key={s.value}
-                  className={filter.file_states.includes(s.value) ? 'chip chip--on' : 'chip'}
-                >
+          <>
+            <fieldset>
+              <FilterLegend
+                label="Favoris"
+                onClear={filter.favorite ? () => set('favorite', null) : undefined}
+              />
+              <div className="chips">
+                <label className={filter.favorite ? 'chip chip--on' : 'chip'}>
                   <input
                     type="checkbox"
-                    checked={filter.file_states.includes(s.value)}
-                    onChange={(e) =>
-                      set(
-                        'file_states',
-                        e.target.checked
-                          ? [...filter.file_states, s.value]
-                          : filter.file_states.filter((v) => v !== s.value),
-                      )
-                    }
+                    checked={!!filter.favorite}
+                    onChange={(e) => set('favorite', e.target.checked ? true : null)}
                   />
-                  {s.label}
+                  ★ Favorites seulement
                 </label>
-              ))}
-            </div>
-            <div className="chips">
-              <label className={filter.undated ? 'chip chip--on' : 'chip'}>
-                <input
-                  type="checkbox"
-                  checked={!!filter.undated}
-                  onChange={(e) => set('undated', e.target.checked ? true : null)}
-                />
-                Sans date
-              </label>
-              <label className={filter.unpositioned ? 'chip chip--on' : 'chip'}>
-                <input
-                  type="checkbox"
-                  checked={!!filter.unpositioned}
-                  onChange={(e) => set('unpositioned', e.target.checked ? true : null)}
-                />
-                Sans position
-              </label>
-            </div>
-          </fieldset>
+              </div>
+            </fieldset>
+            <fieldset>
+              <FilterLegend
+                label="État du fichier"
+                onClear={
+                  filter.file_states.length || filter.undated || filter.unpositioned
+                    ? () =>
+                        setFilter({
+                          ...filter,
+                          file_states: [],
+                          undated: null,
+                          unpositioned: null,
+                          offset: 0,
+                        })
+                    : undefined
+                }
+              />
+              <div className="chips">
+                {[
+                  { value: 'present', label: 'Lisible' },
+                  { value: 'purged', label: 'Supprimée' },
+                  { value: 'missing', label: 'Disparue' },
+                ].map((s) => (
+                  <label
+                    key={s.value}
+                    className={filter.file_states.includes(s.value) ? 'chip chip--on' : 'chip'}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={filter.file_states.includes(s.value)}
+                      onChange={(e) =>
+                        set(
+                          'file_states',
+                          e.target.checked
+                            ? [...filter.file_states, s.value]
+                            : filter.file_states.filter((v) => v !== s.value),
+                        )
+                      }
+                    />
+                    {s.label}
+                  </label>
+                ))}
+              </div>
+              <div className="chips">
+                <label className={filter.undated ? 'chip chip--on' : 'chip'}>
+                  <input
+                    type="checkbox"
+                    checked={!!filter.undated}
+                    onChange={(e) => set('undated', e.target.checked ? true : null)}
+                  />
+                  Sans date
+                </label>
+                <label className={filter.unpositioned ? 'chip chip--on' : 'chip'}>
+                  <input
+                    type="checkbox"
+                    checked={!!filter.unpositioned}
+                    onChange={(e) => set('unpositioned', e.target.checked ? true : null)}
+                  />
+                  Sans position
+                </label>
+              </div>
+            </fieldset>
+          </>
         }
       />
 
@@ -235,6 +273,26 @@ export function Videos({
                       ⌀
                     </span>
                   )}
+                  {/* Un span et non un bouton : la vignette en est déjà un. */}
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    className={v.favorite ? 'tile__star tile__star--on' : 'tile__star'}
+                    title={v.favorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+                    aria-pressed={v.favorite}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      void setFavorite([v.id], !v.favorite);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key !== 'Enter' && e.key !== ' ') return;
+                      e.preventDefault();
+                      e.stopPropagation();
+                      void setFavorite([v.id], !v.favorite);
+                    }}
+                  >
+                    {v.favorite ? '★' : '☆'}
+                  </span>
                 </div>
                 <div className="tile__meta">
                   <span className="small">
@@ -272,6 +330,7 @@ export function Videos({
               <tr>
                 <th />
                 <th />
+                <th />
                 <th>Date</th>
                 <th>Piège</th>
                 <th>Espèces</th>
@@ -289,6 +348,16 @@ export function Videos({
                       checked={selected.has(v.id)}
                       onChange={() => toggle(v.id)}
                     />
+                  </td>
+                  <td>
+                    <button
+                      className={v.favorite ? 'star-button star-button--on' : 'star-button'}
+                      title={v.favorite ? 'Retirer des favoris' : 'Ajouter aux favoris'}
+                      aria-pressed={v.favorite}
+                      onClick={() => void setFavorite([v.id], !v.favorite)}
+                    >
+                      {v.favorite ? '★' : '☆'}
+                    </button>
                   </td>
                   <td>
                     {v.thumbnail_path ? (
@@ -420,6 +489,17 @@ export function Videos({
           >
             Définir la position…
           </button>
+          {/* Un seul bouton qui dit ce qu'il fera : tout marquer tant qu'une vidéo de la
+              sélection ne l'est pas, tout retirer sinon. */}
+          {(() => {
+            const chosen = rows.filter((r) => selected.has(r.id));
+            const allFavorite = chosen.length > 0 && chosen.every((r) => r.favorite);
+            return (
+              <button onClick={() => void setFavorite([...selected], !allFavorite)}>
+                {allFavorite ? '☆ Retirer des favoris' : '★ Ajouter aux favoris'}
+              </button>
+            );
+          })()}
           <button onClick={() => setSelected(new Set(rows.map((r) => r.id)))}>
             Tout sélectionner ({rows.length})
           </button>
@@ -524,6 +604,8 @@ export function Videos({
               ? () => onOpenSequence(playing.sequence_id!)
               : undefined
           }
+          favorite={playing.favorite}
+          onToggleFavorite={() => void setFavorite([playing.id], !playing.favorite)}
         />
       )}
     </div>

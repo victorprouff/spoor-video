@@ -27,6 +27,8 @@ pub struct VideoFilter {
     pub undated: Option<bool>,
     /// `true` ne garde que les vidéos sans position.
     pub unpositioned: Option<bool>,
+    /// `true` ne garde que les favorites.
+    pub favorite: Option<bool>,
     /// `date` (défaut, du plus récent au plus ancien) ou `date_asc`.
     pub sort: Option<String>,
 }
@@ -56,6 +58,7 @@ pub struct VideoRow {
     pub species_colors: Vec<Option<String>>,
     /// Rang de la vidéo dans sa séquence, et taille de celle-ci : « 2 / 5 ».
     pub sequence_size: i64,
+    pub favorite: bool,
 }
 
 #[derive(Debug, serde::Serialize)]
@@ -199,6 +202,9 @@ fn where_clause(filter: &VideoFilter) -> (String, Vec<Box<dyn ToSql>>) {
     if filter.unpositioned == Some(true) {
         clauses.push("v.latitude IS NULL".into());
     }
+    if filter.favorite == Some(true) {
+        clauses.push("v.favorite_at IS NOT NULL".into());
+    }
 
     (clauses.join(" AND "), params)
 }
@@ -252,7 +258,7 @@ pub fn page(conn: &Connection, filter: VideoFilter) -> Result<VideoPage, DbError
                 v.duration_s, v.file_size, v.thumbnail_path,
                 v.latitude, v.longitude, v.position_manual,
                 s.sun_phase, s.state, s.reviewed_at IS NOT NULL,
-                COALESCE(s.video_count, 0)
+                COALESCE(s.video_count, 0), v.favorite_at IS NOT NULL
          {FROM} WHERE {where_sql}
          ORDER BY {eff} {direction}, v.file_name
          LIMIT {limit} OFFSET {offset}"
@@ -280,6 +286,7 @@ pub fn page(conn: &Connection, filter: VideoFilter) -> Result<VideoPage, DbError
             state: r.get(16)?,
             reviewed: r.get::<_, i64>(17)? != 0,
             sequence_size: r.get(18)?,
+            favorite: r.get::<_, i64>(19)? != 0,
             species: Vec::new(),
             species_colors: Vec::new(),
         })
@@ -315,6 +322,30 @@ pub fn page(conn: &Connection, filter: VideoFilter) -> Result<VideoPage, DbError
         undated_total,
         unplayable_total,
     })
+}
+
+/// Marque ou démarque des vidéos comme favorites. Rend le nombre de lignes touchées.
+///
+/// Marquer une vidéo déjà favorite garde sa date d'origine : on ne réécrit pas « depuis
+/// quand » à chaque clic.
+pub fn set_favorite(
+    conn: &Connection,
+    video_ids: &[String],
+    favorite: bool,
+) -> Result<usize, DbError> {
+    let now = chrono::Utc::now().to_rfc3339();
+    let sql = if favorite {
+        "UPDATE videos SET favorite_at = COALESCE(favorite_at, ?2), updated_at = ?2
+         WHERE id = ?1 AND deleted_at IS NULL"
+    } else {
+        "UPDATE videos SET favorite_at = NULL, updated_at = ?2
+         WHERE id = ?1 AND deleted_at IS NULL"
+    };
+    let mut changed = 0;
+    for id in video_ids {
+        changed += conn.execute(sql, rusqlite::params![id, now])?;
+    }
+    Ok(changed)
 }
 
 #[cfg(test)]
@@ -582,5 +613,42 @@ mod tests {
         .unwrap();
         assert_eq!(p.rows.len(), 2);
         assert_eq!(p.total, 5);
+    }
+
+    #[test]
+    fn filtre_sur_les_favorites() {
+        let conn = db();
+        video(&conn, "v1", "t1", Some("2026-03-14T21:00:00Z"), Some("s1"));
+        video(&conn, "v2", "t1", Some("2026-03-14T21:02:00Z"), Some("s1"));
+        video(&conn, "v3", "t2", None, None);
+
+        assert_eq!(set_favorite(&conn, &["v2".into(), "v3".into()], true).unwrap(), 2);
+        let favorites = || VideoFilter {
+            favorite: Some(true),
+            ..filter()
+        };
+        let p = page(&conn, favorites()).unwrap();
+        assert_eq!(ids(&p), vec!["v2", "v3"], "une favorite sans date reste trouvable");
+        assert!(p.rows.iter().all(|r| r.favorite));
+
+        set_favorite(&conn, &["v2".into()], false).unwrap();
+        assert_eq!(ids(&page(&conn, favorites()).unwrap()), vec!["v3"]);
+        assert_eq!(page(&conn, filter()).unwrap().total, 3, "retirer des favoris ne cache rien");
+    }
+
+    #[test]
+    fn remarquer_une_favorite_garde_sa_date() {
+        let conn = db();
+        video(&conn, "v1", "t1", Some("2026-03-14T21:00:00Z"), Some("s1"));
+        conn.execute(
+            "UPDATE videos SET favorite_at = '2026-01-01T00:00:00Z' WHERE id = 'v1'",
+            [],
+        )
+        .unwrap();
+        set_favorite(&conn, &["v1".into()], true).unwrap();
+        let at: String = conn
+            .query_row("SELECT favorite_at FROM videos WHERE id = 'v1'", [], |r| r.get(0))
+            .unwrap();
+        assert_eq!(at, "2026-01-01T00:00:00Z");
     }
 }

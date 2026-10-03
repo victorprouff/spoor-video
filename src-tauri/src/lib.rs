@@ -157,6 +157,7 @@ pub fn run() {
             commands::discarded_files,
             commands::restore_discarded,
             commands::list_videos,
+            commands::set_video_favorite,
         ])
         .run(tauri::generate_context!())
         .expect("erreur au lancement de l'application");
