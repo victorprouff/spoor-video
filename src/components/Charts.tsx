@@ -13,6 +13,8 @@ type Bar = {
   color?: string | null;
   /** Barre atténuée : présente, mais pas au premier plan. */
   dim?: boolean;
+  /** Libellé au survol, quand l'étiquette d'axe est laissée vide pour aérer. */
+  title?: string;
 };
 
 /**
@@ -28,11 +30,20 @@ export function BarChart({
   bars,
   height = 160,
   format = (n: number) => String(n),
+  unit,
 }: {
   bars: Bar[];
   height?: number;
   format?: (n: number) => string;
+  /**
+   * Active la bulle de survol, qui donne le nombre sous la souris dans cette unité
+   * (« passage » → « 3 passages »). Sans elle, seul le `title` natif reste, lent à
+   * venir et pas toujours affiché par la fenêtre de l'application.
+   */
+  unit?: string;
 }) {
+  const [hover, setHover] = useState<number | null>(null);
+
   if (bars.length === 0) {
     return <p className="muted small">Aucune donnée dans cette sélection.</p>;
   }
@@ -41,16 +52,49 @@ export function BarChart({
   // Au-delà d'une vingtaine de barres, les valeurs se chevauchent et ne servent plus
   // à rien : l'info reste au survol.
   const showValues = bars.length <= 20;
-  const columns = { gridTemplateColumns: `repeat(${bars.length}, 1fr)` };
+  // L'espace entre barres se resserre avec leur nombre : à 360 barres, 2 px d'écart
+  // mangeraient la place des barres elles-mêmes. Même écart pour l'axe, sinon les
+  // étiquettes glissent par rapport à leurs barres.
+  const gap = bars.length > 240 ? 0 : bars.length > 40 ? 1 : 2;
+  const columns = { gridTemplateColumns: `repeat(${bars.length}, 1fr)`, gap };
+
+  const hovered = unit && hover !== null ? bars[hover] : null;
 
   return (
     <div className="chart">
-      <div className="chart__plot" style={{ ...columns, height }}>
+      <div
+        className="chart__plot"
+        style={{ ...columns, height }}
+        onMouseLeave={() => setHover(null)}
+      >
+        {hovered && hover !== null && (
+          <div
+            className="chart__tip"
+            style={{
+              left: `${((hover + 0.5) / bars.length) * 100}%`,
+              // Glisse de 0 à -100 % selon la position : la bulle reste dans le graphique
+              // au lieu de déborder sur les bords.
+              transform: `translateX(-${(hover / Math.max(bars.length - 1, 1)) * 100}%)`,
+            }}
+          >
+            <span className="muted">{hovered.title ?? hovered.label}</span>
+            <span className="muted"> · </span>
+            <strong>{format(hovered.value)}</strong> {unit}
+            {hovered.value > 1 ? 's' : ''}
+          </div>
+        )}
         {bars.map((b, i) => (
           <div
             key={`${b.label}-${i}`}
-            className={b.dim ? 'chart__col chart__col--dim' : 'chart__col'}
-            title={`${b.label || '—'} : ${format(b.value)}`}
+            className={[
+              'chart__col',
+              b.dim && 'chart__col--dim',
+              unit && hover === i && 'chart__col--on',
+            ]
+              .filter(Boolean)
+              .join(' ')}
+            title={unit ? undefined : `${b.title ?? (b.label || '—')} : ${format(b.value)}`}
+            onMouseEnter={unit ? () => setHover(i) : undefined}
           >
             {showValues && b.value > 0 && <span className="chart__value">{format(b.value)}</span>}
             <div

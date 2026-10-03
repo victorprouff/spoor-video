@@ -373,6 +373,14 @@ pub fn stats(db: tauri::State<'_, Db>, filter: GridFilter) -> Result<Stats, DbEr
     stats::compute(&db.conn.lock().unwrap(), filter)
 }
 
+#[tauri::command]
+pub fn recent_activity(
+    db: tauri::State<'_, Db>,
+    filter: GridFilter,
+) -> Result<Vec<stats::RecentBucket>, DbError> {
+    stats::recent(&db.conn.lock().unwrap(), filter)
+}
+
 // --- Exports --------------------------------------------------------------
 
 #[tauri::command]

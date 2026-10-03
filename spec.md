@@ -340,6 +340,16 @@ cochées par défaut, « Sans espèce » comprise ; un passage où figurent deux
 n'y compte qu'une fois — d'où des comptages par combinaison d'espèces côté Rust, et non une
 somme des comptages par espèce.
 
+**Derniers jours.** Premier graphique de l'onglet. Barres sur les 7, 15, 30, 60 ou 90 jours
+qui finissent **aujourd'hui** (date de l'ordinateur ; 7 par défaut). Heure par heure jusqu'à
+15 jours, une journée sur deux atténuée pour que les barres se découpent en jours ; **jour
+par jour au-delà** — 90 jours heure par heure feraient 2 160 barres de moins d'un pixel.
+Tous les filtres de l'onglet s'appliquent, **sauf les dates** — la période est celle-ci, et
+l'interface le dit si des dates sont choisies. Même liste déroulante d'espèces que le rythme
+d'activité. Au survol, une bulle donne la barre (jour, heure) et son nombre de passages.
+Les cartes n'étant relevées que de temps en temps, la période peut être vide :
+on l'écrit plutôt que de reculer en silence jusqu'à la dernière capture.
+
 **Saisonnalité.** Le **filtre par mois toutes années confondues** de Spoor (`months=12,1,2`) :
 comparer le même mois d'une année sur l'autre est le cœur de l'analyse long terme.
 

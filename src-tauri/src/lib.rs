@@ -142,6 +142,7 @@ pub fn run() {
             commands::grid_page,
             commands::annotate_sequences,
             commands::stats,
+            commands::recent_activity,
             commands::export_sequences_csv,
             commands::export_detections_csv,
             commands::copy_videos,

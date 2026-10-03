@@ -1,7 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { listSpecies, listTraps, stats as fetchStats } from '../api';
-import type { GridFilter, RhythmBucket, Species, Stats as StatsData, Trap } from '../api';
+import { listSpecies, listTraps, recentActivity, stats as fetchStats } from '../api';
+import type {
+  GridFilter,
+  RecentBucket,
+  RhythmBucket,
+  Species,
+  Stats as StatsData,
+  Trap,
+} from '../api';
 import { BarChart, SmallMultiples } from '../components/Charts';
 import { Export } from '../components/Export';
 import { EMPTY_FILTER, Filters } from '../components/Filters';
@@ -201,17 +208,14 @@ export function Stats({ onError }: { onError: (e: string | null) => void }) {
             )}
           </section>
 
+          <RecentActivity filter={filter} species={species} onError={onError} />
+
           <section className="panel stack">
             <div className="row row--flush">
               <h2>Rythme d’activité</h2>
               <span className="app__spacer" />
               {view !== 'species' && (
-                <SpeciesDropdown
-                  options={speciesOptions}
-                  hidden={hidden}
-                  onChange={setHidden}
-                  keptCount={keptCount}
-                />
+                <SpeciesDropdown options={speciesOptions} hidden={hidden} onChange={setHidden} />
               )}
               <div className="segmented">
                 <button
@@ -442,13 +446,12 @@ function SpeciesDropdown({
   options,
   hidden,
   onChange,
-  keptCount,
 }: {
   options: SpeciesOption[];
   hidden: Set<string>;
   onChange: (hidden: Set<string>) => void;
-  keptCount: number;
 }) {
+  const keptCount = options.filter((o) => !hidden.has(o.key)).length;
   const ref = useRef<HTMLDetailsElement>(null);
 
   // Un clic ailleurs referme le menu, comme n'importe quelle liste déroulante.
@@ -507,5 +510,194 @@ function SpeciesDropdown({
         ))}
       </div>
     </details>
+  );
+}
+
+const PERIODS = [7, 15, 30, 60, 90];
+
+/**
+ * Au-delà, une barre par jour. Heure par heure, 90 jours feraient 2 160 barres de moins
+ * d'un pixel : on ne lirait plus rien.
+ */
+const HOURLY_MAX_DAYS = 15;
+
+const WEEKDAYS = ['dim.', 'lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.'];
+const SHORT_MONTHS = [
+  'janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin',
+  'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.',
+];
+
+/** « 14 sept. » : assez court pour une graduation par semaine sur 90 jours. */
+function shortDayLabel(day: string): string {
+  return `${Number(day.slice(8, 10))} ${SHORT_MONTHS[Number(day.slice(5, 7)) - 1]}`;
+}
+
+/** `YYYY-MM-DD` d'une date du calendrier — sans fuseau : seuls jour, mois, année comptent. */
+const isoDay = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+/** « lun. 28 » à partir de `YYYY-MM-DD`, en découpant la chaîne (voir format.ts). */
+function dayLabel(day: string): string {
+  return `${WEEKDAYS[weekday(day)]} ${Number(day.slice(8, 10))}`;
+}
+
+/** « 27 septembre » : la période doit se lire même à cheval sur deux mois. */
+function fullDayLabel(day: string): string {
+  const [, m, d] = day.split('-').map(Number);
+  return `${d} ${monthName(m)}`;
+}
+
+/** Jour de la semaine de `YYYY-MM-DD`, 0 = dimanche. */
+function weekday(day: string): number {
+  const [y, m, d] = day.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+}
+
+/**
+ * Les 7 à 90 jours qui finissent **aujourd'hui** (date de l'ordinateur) : heure par heure
+ * jusqu'à 15 jours, jour par jour au-delà.
+ *
+ * Les filtres de l'onglet s'appliquent, sauf les dates : la période est celle-ci et pas
+ * une autre. Comme les cartes ne sont relevées que de temps en temps, la période peut
+ * être vide ; on le dit plutôt que de reculer en silence jusqu'à la dernière capture.
+ */
+function RecentActivity({
+  filter,
+  species,
+  onError,
+}: {
+  filter: GridFilter;
+  species: Species[];
+  onError: (e: string | null) => void;
+}) {
+  const [rows, setRows] = useState<RecentBucket[] | null>(null);
+  const [hidden, setHidden] = useState<Set<string>>(new Set());
+  const [period, setPeriod] = useState(7);
+  const hourly = period <= HOURLY_MAX_DAYS;
+
+  // Recalculé à chaque requête : l'application peut rester ouverte d'un jour à l'autre.
+  const days = useMemo(() => {
+    const today = new Date();
+    return Array.from({ length: period }, (_, i) =>
+      isoDay(new Date(today.getFullYear(), today.getMonth(), today.getDate() - (period - 1 - i))),
+    );
+  }, [filter, period]);
+
+  useEffect(() => {
+    let live = true;
+    recentActivity({ ...filter, from: days[0], to: days[days.length - 1] })
+      .then((r) => live && setRows(r))
+      .catch((e) => onError(String(e)));
+    return () => {
+      live = false;
+    };
+  }, [filter, days, onError]);
+
+  const options = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const r of rows ?? []) {
+      const keys = r.species_ids.length === 0 ? [NO_SPECIES] : r.species_ids;
+      for (const k of keys) counts.set(k, (counts.get(k) ?? 0) + r.count);
+    }
+    const byId = new Map(species.map((s) => [s.id, s]));
+    return [...counts.entries()]
+      .map(([key, count]) => ({
+        key,
+        name: key === NO_SPECIES ? 'Sans espèce' : (byId.get(key)?.common_name ?? key),
+        color: key === NO_SPECIES ? null : (byId.get(key)?.color ?? null),
+        count,
+      }))
+      .sort(
+        (a, b) =>
+          // « Sans espèce » toujours en dernier, comme dans le rythme d'activité.
+          Number(a.key === NO_SPECIES) - Number(b.key === NO_SPECIES) ||
+          b.count - a.count ||
+          a.name.localeCompare(b.name, 'fr'),
+      );
+  }, [rows, species]);
+
+  const bars = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const r of rows ?? []) {
+      const kept =
+        r.species_ids.length === 0
+          ? !hidden.has(NO_SPECIES)
+          : r.species_ids.some((id) => !hidden.has(id));
+      if (!kept) continue;
+      const k = hourly ? `${r.day} ${r.hour}` : r.day;
+      counts.set(k, (counts.get(k) ?? 0) + r.count);
+    }
+    if (!hourly) {
+      return days.map((day, i) => ({
+        // Une étiquette par lundi : une par jour se chevaucherait dès 30 jours. Rien
+        // contre les bords, où l'étiquette centrée déborderait du graphique.
+        label:
+          weekday(day) === 1 && i >= 2 && i < days.length - 2 ? shortDayLabel(day) : '',
+        // Le mois dans la bulle : sur 90 jours, « sam. 3 » ne dit pas lequel.
+        title: `${WEEKDAYS[weekday(day)]} ${shortDayLabel(day)}`,
+        value: counts.get(day) ?? 0,
+      }));
+    }
+    return days.flatMap((day, i) =>
+      HOURS.map((h) => ({
+        // Le nom du jour sous midi : centré sous sa journée, il ne gêne pas ses voisins.
+        label: h === 12 ? dayLabel(day) : '',
+        title: `${dayLabel(day)}, ${hourLabel(h)}`,
+        value: counts.get(`${day} ${h}`) ?? 0,
+        // Une journée sur deux atténuée : sans cela, les barres ne se découpent pas en jours.
+        dim: i % 2 === 1,
+      })),
+    );
+  }, [rows, hidden, days, hourly]);
+
+  const total = bars.reduce((sum, b) => sum + b.value, 0);
+  const kept = options.filter((o) => !hidden.has(o.key)).length;
+
+  return (
+    <section className="panel stack">
+      <div className="row row--flush">
+        <h2>Derniers jours</h2>
+        <span className="muted small">
+          du {fullDayLabel(days[0])} au {fullDayLabel(days[days.length - 1])}
+        </span>
+        <span className="app__spacer" />
+        {options.length > 0 && (
+          <SpeciesDropdown options={options} hidden={hidden} onChange={setHidden} />
+        )}
+        <div className="segmented">
+          {PERIODS.map((p) => (
+            <button
+              key={p}
+              className={period === p ? 'segmented__on' : undefined}
+              onClick={() => setPeriod(p)}
+            >
+              {p} j
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {rows === null ? (
+        <p className="muted">Calcul…</p>
+      ) : rows.length === 0 ? (
+        <p className="muted">
+          Aucun passage sur ces {period} jours. Les vidéos les plus récentes ne sont peut-être pas
+          encore importées.
+        </p>
+      ) : kept === 0 ? (
+        <p className="muted">Aucune espèce choisie.</p>
+      ) : (
+        <>
+          <BarChart bars={bars} unit="passage" />
+          <p className="muted small">
+            {total} passage{total > 1 ? 's' : ''},{' '}
+            {hourly ? 'heure par heure' : 'jour par jour'}, en heure de l’horloge de la caméra.
+          </p>
+        </>
+      )}
+      {(filter.from || filter.to) && (
+        <p className="muted small">Les dates choisies dans les filtres ne s’appliquent pas ici.</p>
+      )}
+    </section>
   );
 }

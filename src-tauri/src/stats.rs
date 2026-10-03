@@ -104,6 +104,54 @@ pub struct SpeciesStat {
     pub last_at: Option<String>,
 }
 
+/// Les espèces d'une séquence `s`, triées et jointes par des virgules (NULL si aucune).
+/// Le tri rend la combinaison comparable : {renard, blaireau} = {blaireau, renard}.
+const SPECIES_IDS_SQL: &str = "(SELECT group_concat(species_id, ',') FROM (
+    SELECT ss.species_id FROM sequence_species ss
+    WHERE ss.sequence_id = s.id ORDER BY ss.species_id
+))";
+
+fn split_ids(ids: Option<String>) -> Vec<String> {
+    ids.map(|i| i.split(',').map(String::from).collect())
+        .unwrap_or_default()
+}
+
+/// Passages d'une heure donnée d'un jour donné, par combinaison d'espèces.
+#[derive(Debug, serde::Serialize)]
+pub struct RecentBucket {
+    /// Jour en heure murale au piège, `YYYY-MM-DD`.
+    pub day: String,
+    pub hour: i64,
+    pub species_ids: Vec<String>,
+    pub count: i64,
+}
+
+/// Activité heure par heure sur une période courte — les sept derniers jours de l'onglet
+/// Statistiques. La période arrive dans `filter.from` / `filter.to` ; l'interface y met
+/// les sept jours voulus à la place des dates choisies dans les filtres.
+pub fn recent(conn: &Connection, filter: GridFilter) -> Result<Vec<RecentBucket>, DbError> {
+    let (where_sql, params) = where_clause(&filter);
+    let refs: Vec<&dyn ToSql> = params.iter().map(|p| p.as_ref()).collect();
+    let mut stmt = conn.prepare(&format!(
+        "SELECT d, h, ids, COUNT(*) FROM (
+            SELECT date(s.started_at) AS d,
+                   CAST(strftime('%H', s.started_at) AS INTEGER) AS h,
+                   {SPECIES_IDS_SQL} AS ids
+            FROM sequences s WHERE {where_sql}
+         )
+         GROUP BY d, h, ids ORDER BY d, h"
+    ))?;
+    let rows = stmt.query_map(refs.as_slice(), |r| {
+        Ok(RecentBucket {
+            day: r.get(0)?,
+            hour: r.get(1)?,
+            species_ids: split_ids(r.get(2)?),
+            count: r.get(3)?,
+        })
+    })?;
+    Ok(rows.collect::<Result<Vec<_>, _>>()?)
+}
+
 pub fn compute(conn: &Connection, filter: GridFilter) -> Result<Stats, DbError> {
     let (where_sql, params) = where_clause(&filter);
     let refs: Vec<&dyn ToSql> = params.iter().map(|p| p.as_ref()).collect();
@@ -219,22 +267,16 @@ pub fn compute(conn: &Connection, filter: GridFilter) -> Result<Stats, DbError> 
             "SELECT h, bucket, ids, COUNT(*) FROM (
                 SELECT CAST(strftime('%H', s.started_at) AS INTEGER) AS h,
                        CAST(s.minutes_from_sunset / 30 AS INTEGER) * 30 AS bucket,
-                       (SELECT group_concat(species_id, ',') FROM (
-                            SELECT ss.species_id FROM sequence_species ss
-                            WHERE ss.sequence_id = s.id ORDER BY ss.species_id
-                       )) AS ids
+                       {SPECIES_IDS_SQL} AS ids
                 FROM sequences s WHERE {where_sql}
              )
              GROUP BY h, bucket, ids"
         ))?;
         let rows = stmt.query_map(p, |r| {
-            let ids: Option<String> = r.get(2)?;
             Ok(RhythmBucket {
                 hour: r.get(0)?,
                 solar_bucket: r.get(1)?,
-                species_ids: ids
-                    .map(|i| i.split(',').map(String::from).collect())
-                    .unwrap_or_default(),
+                species_ids: split_ids(r.get(2)?),
                 count: r.get(3)?,
             })
         })?;
@@ -564,5 +606,36 @@ mod tests {
 
         let sans_espece = s.rhythm.iter().find(|r| r.species_ids.is_empty()).unwrap();
         assert_eq!(sans_espece.hour, 3, "un passage sans espèce reste dans le rythme");
+    }
+
+    #[test]
+    fn les_derniers_jours_se_comptent_par_jour_et_par_heure() {
+        let mut conn = db();
+        seq(&conn, "s1", "t1", "2026-09-28T21:10:00", 1);
+        seq(&conn, "s2", "t1", "2026-09-28T21:50:00", 1);
+        seq(&conn, "s3", "t1", "2026-10-03T03:00:00", 1);
+        seq(&conn, "s4", "t1", "2026-09-20T21:00:00", 1);
+        let a = species_id(&conn, 0);
+        tag(&mut conn, "s1", &a, "certain");
+
+        let r = recent(
+            &conn,
+            GridFilter {
+                from: Some("2026-09-27".into()),
+                to: Some("2026-10-03".into()),
+                ..Default::default()
+            },
+        )
+        .unwrap();
+        let total: i64 = r.iter().map(|b| b.count).sum();
+        assert_eq!(total, 3, "le passage du 20 septembre est hors période");
+        assert!(r
+            .iter()
+            .any(|b| b.day == "2026-10-03" && b.hour == 3 && b.species_ids.is_empty()));
+        let soir = r
+            .iter()
+            .filter(|b| b.day == "2026-09-28" && b.hour == 21)
+            .collect::<Vec<_>>();
+        assert_eq!(soir.len(), 2, "avec et sans espèce restent distincts");
     }
 }

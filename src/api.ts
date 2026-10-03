@@ -269,6 +269,8 @@ export type RhythmBucket = {
   species_ids: string[];
   count: number;
 };
+/** Passages d'une heure d'un jour, par combinaison d'espèces. */
+export type RecentBucket = { day: string; hour: number; species_ids: string[]; count: number };
 export type MonthBucket = { month: number; count: number; years: number };
 export type TrapStat = {
   trap_id: string;
@@ -308,6 +310,8 @@ export type Stats = {
 };
 
 export const stats = (filter: GridFilter) => invoke<Stats>('stats', { filter });
+export const recentActivity = (filter: GridFilter) =>
+  invoke<RecentBucket[]>('recent_activity', { filter });
 
 export type ExportReport = { path: string; rows: number };
 export type CopyReport = {

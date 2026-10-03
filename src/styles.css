@@ -898,6 +898,32 @@ input.tiny {
   min-width: 0;
 }
 
+/* La bulle de survol flotte en haut du graphique, sans intercepter la souris : sinon
+   elle masquerait la barre qu'elle décrit et clignoterait. */
+.chart__plot {
+  position: relative;
+}
+
+.chart__tip {
+  position: absolute;
+  top: 0;
+  z-index: 1;
+  padding: 2px 8px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  font-size: 0.8em;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* La barre survolée passe en couleur d'encre : à 1 px de large, un contour ne se
+   verrait pas. */
+.chart__col--on .chart__bar {
+  background: var(--ink) !important;
+  opacity: 1;
+}
+
 /* Une barre atténuée reste lisible : elle est présente, pas au premier plan. */
 .chart__col--dim .chart__bar {
   opacity: 0.4;
@@ -1444,12 +1470,6 @@ input.tiny {
   font-weight: 600;
 }
 
-/* Mode d'emploi replié : présent pour qui le cherche, invisible pour qui le connaît. */
-.help {
-  color: var(--muted);
-  font-size: 0.9em;
-}
-
 /* Liste déroulante à cocher : le résumé dit ce qui est retenu, le menu flotte
    au-dessus du graphique plutôt que de le pousser. */
 .dropdown {
@@ -1523,6 +1543,12 @@ input.tiny {
 .dropdown__name {
   flex: 1;
   white-space: nowrap;
+}
+
+/* Mode d'emploi replié : présent pour qui le cherche, invisible pour qui le connaît. */
+.help {
+  color: var(--muted);
+  font-size: 0.9em;
 }
 
 .help summary {
