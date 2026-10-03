@@ -1450,6 +1450,81 @@ input.tiny {
   font-size: 0.9em;
 }
 
+/* Liste déroulante à cocher : le résumé dit ce qui est retenu, le menu flotte
+   au-dessus du graphique plutôt que de le pousser. */
+.dropdown {
+  position: relative;
+}
+
+.dropdown summary {
+  list-style: none;
+  line-height: 20px;
+  padding: 6px 28px 6px 12px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--panel);
+  cursor: pointer;
+  white-space: nowrap;
+  position: relative;
+}
+
+.dropdown summary::-webkit-details-marker {
+  display: none;
+}
+
+.dropdown summary::after {
+  content: '▾';
+  position: absolute;
+  right: 10px;
+  color: var(--muted);
+}
+
+.dropdown summary:hover {
+  border-color: var(--accent);
+}
+
+.dropdown__menu {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 4px);
+  z-index: 20;
+  min-width: 240px;
+  max-height: 340px;
+  overflow: auto;
+  padding: 6px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: 0 6px 20px rgb(0 0 0 / 0.18);
+}
+
+.dropdown__actions {
+  display: flex;
+  gap: 6px;
+  padding: 2px 4px 6px;
+  margin-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+.dropdown__item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.92em;
+}
+
+.dropdown__item:hover {
+  background: var(--bg);
+}
+
+.dropdown__name {
+  flex: 1;
+  white-space: nowrap;
+}
+
 .help summary {
   width: fit-content;
   cursor: pointer;

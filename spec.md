@@ -333,6 +333,12 @@ et un décalage d'une heure entre juin et décembre fausse toute lecture en heur
 Calcul solaire local à partir des coordonnées du piège, sans appel réseau.
 Les séquences longues apparaissent pour ce qu'elles sont : une plage d'activité continue,
 pas un pic de comptage.
+Un seul panneau, trois onglets : **Espèces** (par défaut — une ligne par espèce, des plus
+fréquentes aux plus rares, chacune à l'échelle de son maximum), **Heure solaire** et **Heure
+civile** (barres). Les deux vues en barres prennent une liste déroulante d'espèces, toutes
+cochées par défaut, « Sans espèce » comprise ; un passage où figurent deux espèces cochées
+n'y compte qu'une fois — d'où des comptages par combinaison d'espèces côté Rust, et non une
+somme des comptages par espèce.
 
 **Saisonnalité.** Le **filtre par mois toutes années confondues** de Spoor (`months=12,1,2`) :
 comparer le même mois d'une année sur l'autre est le cœur de l'analyse long terme.

@@ -21,6 +21,7 @@ pub struct Stats {
     pub hours: Vec<HourBucket>,
     pub species_hours: Vec<SpeciesHour>,
     pub solar: Vec<SolarBucket>,
+    pub rhythm: Vec<RhythmBucket>,
     pub months: Vec<MonthBucket>,
     pub traps: Vec<TrapStat>,
     pub species: Vec<SpeciesStat>,
@@ -46,6 +47,21 @@ pub struct SpeciesHour {
 #[derive(Debug, serde::Serialize)]
 pub struct SolarBucket {
     pub bucket: i64,
+    pub count: i64,
+}
+
+/// Séquences regroupées par heure murale, tranche solaire **et ensemble d'espèces**.
+///
+/// C'est ce qui permet de choisir les espèces du rythme d'activité côté interface sans
+/// compter deux fois un passage où deux espèces figurent ensemble : additionner des
+/// comptages par espèce le ferait.
+#[derive(Debug, serde::Serialize)]
+pub struct RhythmBucket {
+    pub hour: i64,
+    /// Même tranche que `SolarBucket::bucket` ; absente si le piège n'a pas de position.
+    pub solar_bucket: Option<i64>,
+    /// Espèces de la séquence, triées ; vide si aucune n'est identifiée.
+    pub species_ids: Vec<String>,
     pub count: i64,
 }
 
@@ -198,6 +214,33 @@ pub fn compute(conn: &Connection, filter: GridFilter) -> Result<Stats, DbError> 
         rows.collect::<Result<Vec<_>, _>>()?
     };
 
+    let rhythm = {
+        let mut stmt = conn.prepare(&format!(
+            "SELECT h, bucket, ids, COUNT(*) FROM (
+                SELECT CAST(strftime('%H', s.started_at) AS INTEGER) AS h,
+                       CAST(s.minutes_from_sunset / 30 AS INTEGER) * 30 AS bucket,
+                       (SELECT group_concat(species_id, ',') FROM (
+                            SELECT ss.species_id FROM sequence_species ss
+                            WHERE ss.sequence_id = s.id ORDER BY ss.species_id
+                       )) AS ids
+                FROM sequences s WHERE {where_sql}
+             )
+             GROUP BY h, bucket, ids"
+        ))?;
+        let rows = stmt.query_map(p, |r| {
+            let ids: Option<String> = r.get(2)?;
+            Ok(RhythmBucket {
+                hour: r.get(0)?,
+                solar_bucket: r.get(1)?,
+                species_ids: ids
+                    .map(|i| i.split(',').map(String::from).collect())
+                    .unwrap_or_default(),
+                count: r.get(3)?,
+            })
+        })?;
+        rows.collect::<Result<Vec<_>, _>>()?
+    };
+
     // --- Saisonnalité : mois toutes années confondues -----------------------
     let months = {
         let mut stmt = conn.prepare(&format!(
@@ -295,6 +338,7 @@ pub fn compute(conn: &Connection, filter: GridFilter) -> Result<Stats, DbError> 
         hours,
         species_hours,
         solar,
+        rhythm,
         months,
         traps,
         species,
@@ -494,5 +538,31 @@ mod tests {
         assert_eq!(s.total_sequences, 1);
         assert_eq!(s.without_position, 1);
         assert!(s.solar.is_empty(), "sans position, aucun rythme solaire inventé");
+    }
+
+    #[test]
+    fn le_rythme_ne_compte_pas_deux_fois_un_passage_a_deux_especes() {
+        let mut conn = db();
+        seq(&conn, "s1", "t1", "2026-03-01T21:10:00", 1);
+        seq(&conn, "s2", "t1", "2026-03-02T21:40:00", 1);
+        seq(&conn, "s3", "t1", "2026-03-03T03:00:00", 1);
+        let (a, b) = (species_id(&conn, 0), species_id(&conn, 1));
+        tag(&mut conn, "s1", &a, "certain");
+        tag(&mut conn, "s1", &b, "certain");
+        tag(&mut conn, "s2", &a, "certain");
+
+        let s = compute(&conn, GridFilter::default()).unwrap();
+        let total: i64 = s.rhythm.iter().map(|r| r.count).sum();
+        assert_eq!(total, 3, "chaque passage une seule fois, espèces ou pas");
+
+        let a_et_b = s.rhythm.iter().find(|r| r.species_ids.len() == 2).unwrap();
+        assert_eq!(a_et_b.count, 1);
+        assert_eq!(a_et_b.hour, 21);
+        let mut attendu = vec![a.clone(), b.clone()];
+        attendu.sort();
+        assert_eq!(a_et_b.species_ids, attendu);
+
+        let sans_espece = s.rhythm.iter().find(|r| r.species_ids.is_empty()).unwrap();
+        assert_eq!(sans_espece.hour, 3, "un passage sans espèce reste dans le rythme");
     }
 }

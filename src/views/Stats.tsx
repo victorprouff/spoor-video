@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { listSpecies, listTraps, stats as fetchStats } from '../api';
-import type { GridFilter, Species, Stats as StatsData, Trap } from '../api';
+import type { GridFilter, RhythmBucket, Species, Stats as StatsData, Trap } from '../api';
 import { BarChart, SmallMultiples } from '../components/Charts';
 import { Export } from '../components/Export';
 import { EMPTY_FILTER, Filters } from '../components/Filters';
@@ -29,12 +29,20 @@ function solarLabel(minutes: number): string {
   return Number.isInteger(h) && h % 2 === 0 ? `${h > 0 ? '+' : ''}${h}` : '';
 }
 
+/** Clé de l'option « Sans espèce » : un passage non identifié a sa place dans le rythme. */
+const NO_SPECIES = '';
+
+type RhythmView = 'species' | 'solar' | 'civil';
+
 export function Stats({ onError }: { onError: (e: string | null) => void }) {
   const [filter, setFilter] = useState<GridFilter>(EMPTY_FILTER);
   const [data, setData] = useState<StatsData | null>(null);
   const [traps, setTraps] = useState<Trap[]>([]);
   const [species, setSpecies] = useState<Species[]>([]);
-  const [axis, setAxis] = useState<'civil' | 'solar'>('solar');
+  const [view, setView] = useState<RhythmView>('species');
+  // On retient les espèces **écartées**, pas les retenues : une espèce qui apparaît en
+  // changeant de filtre est ainsi cochée d'office, comme le veut « toutes par défaut ».
+  const [hidden, setHidden] = useState<Set<string>>(new Set());
 
   const refresh = useCallback(async () => {
     try {
@@ -72,27 +80,66 @@ export function Stats({ onError }: { onError: (e: string | null) => void }) {
       }
       entry.values.set(row.hour, row.count);
     }
-    return [...map.values()];
+    // Des plus fréquentes aux plus rares : l'œil commence par ce qui compte le plus.
+    const total = (v: Map<number, number>) => [...v.values()].reduce((a, b) => a + b, 0);
+    return [...map.values()].sort(
+      (a, b) => total(b.values) - total(a.values) || a.name.localeCompare(b.name, 'fr'),
+    );
   }, [data]);
 
-  const solarBars = useMemo(() => {
+  /** Les choix de la liste déroulante, dans l'ordre du tableau « Par espèce ». */
+  const speciesOptions = useMemo(() => {
     if (!data) return [];
-    const byBucket = new Map(data.solar.map((s) => [s.bucket, s.count]));
+    const options = data.species.map((s) => ({
+      key: s.species_id,
+      name: s.common_name,
+      color: s.color,
+      count: s.sequences,
+    }));
+    const unidentified = data.total_sequences - data.identified_sequences;
+    if (unidentified > 0) {
+      options.push({ key: NO_SPECIES, name: 'Sans espèce', color: null, count: unidentified });
+    }
+    return options;
+  }, [data]);
+
+  /** Passages retenus par la liste déroulante — chacun une seule fois. */
+  const rhythm = useMemo(() => {
+    if (!data) return [];
+    const kept = (r: RhythmBucket) =>
+      r.species_ids.length === 0
+        ? !hidden.has(NO_SPECIES)
+        : r.species_ids.some((id) => !hidden.has(id));
+    return data.rhythm.filter(kept);
+  }, [data, hidden]);
+
+  const keptCount = speciesOptions.filter((o) => !hidden.has(o.key)).length;
+  const withoutPosition = rhythm
+    .filter((r) => r.solar_bucket === null)
+    .reduce((sum, r) => sum + r.count, 0);
+  const rhythmTotal = rhythm.reduce((sum, r) => sum + r.count, 0);
+
+  const solarBars = useMemo(() => {
+    const byBucket = new Map<number, number>();
+    for (const r of rhythm) {
+      if (r.solar_bucket === null) continue;
+      byBucket.set(r.solar_bucket, (byBucket.get(r.solar_bucket) ?? 0) + r.count);
+    }
     return SOLAR_SLOTS.map((slot) => ({
       label: solarLabel(slot),
       value: byBucket.get(slot) ?? 0,
       dim: slot < 0,
     }));
-  }, [data]);
+  }, [rhythm]);
 
   const hourBars = useMemo(() => {
-    if (!data) return [];
-    const byHour = new Map(data.hours.map((h) => [h.hour, h.count]));
+    const byHour = new Map<number, number>();
+    for (const r of rhythm) byHour.set(r.hour, (byHour.get(r.hour) ?? 0) + r.count);
     return HOURS.map((h) => ({
       label: hourLabel(h),
       value: byHour.get(h) ?? 0,
     }));
-  }, [data]);
+  }, [rhythm]);
 
   const monthBars = useMemo(() => {
     if (!data) return [];
@@ -158,33 +205,73 @@ export function Stats({ onError }: { onError: (e: string | null) => void }) {
             <div className="row row--flush">
               <h2>Rythme d’activité</h2>
               <span className="app__spacer" />
+              {view !== 'species' && (
+                <SpeciesDropdown
+                  options={speciesOptions}
+                  hidden={hidden}
+                  onChange={setHidden}
+                  keptCount={keptCount}
+                />
+              )}
               <div className="segmented">
                 <button
-                  className={axis === 'solar' ? 'segmented__on' : undefined}
-                  onClick={() => setAxis('solar')}
+                  className={view === 'species' ? 'segmented__on' : undefined}
+                  onClick={() => setView('species')}
+                >
+                  Espèces
+                </button>
+                <button
+                  className={view === 'solar' ? 'segmented__on' : undefined}
+                  onClick={() => setView('solar')}
                 >
                   Heure solaire
                 </button>
                 <button
-                  className={axis === 'civil' ? 'segmented__on' : undefined}
-                  onClick={() => setAxis('civil')}
+                  className={view === 'civil' ? 'segmented__on' : undefined}
+                  onClick={() => setView('civil')}
                 >
                   Heure civile
                 </button>
               </div>
             </div>
 
-            {axis === 'solar' ? (
+            {view === 'species' ? (
+              <>
+                <SmallMultiples
+                  series={speciesSeries}
+                  slots={HOURS}
+                  labelOf={(h) => (h % 6 === 0 ? hourLabel(h) : '')}
+                  fullLabelOf={hourLabel}
+                />
+                {data.identified_sequences < data.total_sequences && (
+                  <p className="muted small">
+                    {data.total_sequences - data.identified_sequences} passage(s) sans espèce
+                    identifiée n’apparaissent pas ici ; ils sont dans les vues en heure solaire et
+                    civile.
+                  </p>
+                )}
+                <Help>
+                  <p>
+                    Une ligne par espèce, des plus fréquentes aux plus rares, sur 24 heures en
+                    heure civile. Chacune est à l’échelle de son propre maximum : on compare des{' '}
+                    <em>formes</em> d’activité, pas des abondances — sinon l’espèce la plus
+                    fréquente écraserait les autres.
+                  </p>
+                </Help>
+              </>
+            ) : keptCount === 0 ? (
+              <p className="muted">Aucune espèce choisie.</p>
+            ) : view === 'solar' ? (
               <>
                 <BarChart bars={solarBars} />
                 <p className="muted small">
                   Par tranches de 30 min autour du <strong>coucher du soleil</strong> (☾) de chaque
                   jour.
-                  {data.without_position > 0 ? (
+                  {withoutPosition > 0 ? (
                     <>
                       {' '}
                       <span className="warn">
-                        {data.without_position} passage(s) sur {data.total_sequences} absent(s)
+                        {withoutPosition} passage(s) sur {rhythmTotal} absent(s)
                       </span>{' '}
                       : leur piège n’a pas de coordonnées (Réglages → Pièges).
                     </>
@@ -201,7 +288,10 @@ export function Stats({ onError }: { onError: (e: string | null) => void }) {
                     civile il semble avoir deux habitudes, ici il n’en a qu’une. Une espèce diurne,
                     au contraire, s’y étale : pour elle, l’heure civile se lit mieux.
                   </p>
-                  {data.without_position > 0 && (
+                  <p>
+                    Un passage où figurent plusieurs espèces choisies ne compte qu’une fois.
+                  </p>
+                  {withoutPosition > 0 && (
                     <p>
                       Sans coordonnées, ni lever ni coucher ne se calculent. Renseigne la position
                       du piège, puis « Appliquer aux vidéos ».
@@ -217,23 +307,6 @@ export function Stats({ onError }: { onError: (e: string | null) => void }) {
                 </p>
               </>
             )}
-          </section>
-
-          <section className="panel stack">
-            <h2>Rythme par espèce</h2>
-            <SmallMultiples
-              series={speciesSeries}
-              slots={HOURS}
-              labelOf={(h) => (h % 6 === 0 ? hourLabel(h) : '')}
-              fullLabelOf={hourLabel}
-            />
-            <Help>
-              <p>
-                Une ligne par espèce, sur 24 heures, chacune à l’échelle de son propre maximum : on
-                compare des <em>formes</em> d’activité, pas des abondances — sinon l’espèce la plus
-                fréquente écraserait les autres.
-              </p>
-            </Help>
           </section>
 
           <section className="panel stack">
@@ -355,6 +428,84 @@ function Help({
     <details className="help">
       <summary>{label}</summary>
       <div className="help__body">{children}</div>
+    </details>
+  );
+}
+
+type SpeciesOption = { key: string; name: string; color: string | null; count: number };
+
+/**
+ * Choix des espèces du rythme d'activité : une liste à cocher dans un menu déroulant,
+ * pour ne pas pousser le graphique sous une rangée de puces.
+ */
+function SpeciesDropdown({
+  options,
+  hidden,
+  onChange,
+  keptCount,
+}: {
+  options: SpeciesOption[];
+  hidden: Set<string>;
+  onChange: (hidden: Set<string>) => void;
+  keptCount: number;
+}) {
+  const ref = useRef<HTMLDetailsElement>(null);
+
+  // Un clic ailleurs referme le menu, comme n'importe quelle liste déroulante.
+  useEffect(() => {
+    const close = (e: MouseEvent) => {
+      if (ref.current?.open && !ref.current.contains(e.target as Node)) {
+        ref.current.open = false;
+      }
+    };
+    document.addEventListener('mousedown', close);
+    return () => document.removeEventListener('mousedown', close);
+  }, []);
+
+  const toggle = (key: string) => {
+    const next = new Set(hidden);
+    if (next.has(key)) next.delete(key);
+    else next.add(key);
+    onChange(next);
+  };
+
+  const summary =
+    keptCount === options.length
+      ? 'Toutes les espèces'
+      : keptCount === 0
+        ? 'Aucune espèce'
+        : keptCount === 1
+          ? options.find((o) => !hidden.has(o.key))?.name
+          : `${keptCount} espèces sur ${options.length}`;
+
+  return (
+    <details className="dropdown" ref={ref}>
+      <summary>{summary}</summary>
+      <div className="dropdown__menu">
+        <div className="dropdown__actions">
+          <button className="small" onClick={() => onChange(new Set())}>
+            Toutes
+          </button>
+          <button
+            className="small"
+            onClick={() => onChange(new Set(options.map((o) => o.key)))}
+          >
+            Aucune
+          </button>
+        </div>
+        {options.map((o) => (
+          <label key={o.key || 'none'} className="dropdown__item">
+            <input type="checkbox" checked={!hidden.has(o.key)} onChange={() => toggle(o.key)} />
+            <span
+              className="swatch"
+              style={{ background: o.color ?? 'transparent' }}
+              aria-hidden
+            />
+            <span className="dropdown__name">{o.name}</span>
+            <span className="muted small">{o.count}</span>
+          </label>
+        ))}
+      </div>
     </details>
   );
 }

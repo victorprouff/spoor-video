@@ -262,6 +262,13 @@ export type SpeciesHour = {
   count: number;
 };
 export type SolarBucket = { bucket: number; count: number };
+/** Séquences d'une même heure, tranche solaire et combinaison d'espèces. */
+export type RhythmBucket = {
+  hour: number;
+  solar_bucket: number | null;
+  species_ids: string[];
+  count: number;
+};
 export type MonthBucket = { month: number; count: number; years: number };
 export type TrapStat = {
   trap_id: string;
@@ -294,6 +301,7 @@ export type Stats = {
   hours: HourBucket[];
   species_hours: SpeciesHour[];
   solar: SolarBucket[];
+  rhythm: RhythmBucket[];
   months: MonthBucket[];
   traps: TrapStat[];
   species: SpeciesStat[];
