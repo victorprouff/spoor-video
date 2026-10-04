@@ -62,6 +62,8 @@ export type RootFolder = {
 
 export type AppState = {
   root_path: string | null;
+  /** La racine existe sur cette machine (faux pour une base venue de l'autre ordinateur). */
+  root_found: boolean;
   ffmpeg_available: boolean;
   traps: Trap[];
   videos_count: number;
@@ -128,6 +130,23 @@ export type DataLocation = {
   is_default: boolean;
   dev: boolean;
   error: string | null;
+  /** La base est ouverte sur une autre machine. */
+  locked_by: LockInfo | null;
+  /** Chemins réécrits vers la racine de cette machine à l'ouverture. */
+  root_rebased: Rebase | null;
+};
+
+export type LockInfo = {
+  host: string;
+  /** Heure locale de la machine qui a ouvert la base, sans fuseau. */
+  since: string;
+};
+
+export type Rebase = {
+  from: string;
+  to: string;
+  found: number;
+  total: number;
 };
 
 export const dataLocation = () => invoke<DataLocation>('data_location');
@@ -136,6 +155,8 @@ export const moveData = (dir: string) => invoke<void>('move_data', { dir });
 export const setDataDir = (dir: string | null) => invoke<void>('use_data_dir', { dir });
 export const restartApp = () => invoke<void>('restart_app');
 export const setRootPath = (path: string) => invoke<void>('set_root_path', { path });
+export const relocateRoot = (path: string) => invoke<Rebase>('relocate_root', { path });
+export const forceOpen = () => invoke<void>('force_open');
 export const scanRoot = () => invoke<ScanReport>('scan_root');
 export const listRootFolders = () => invoke<RootFolder[]>('list_root_folders');
 

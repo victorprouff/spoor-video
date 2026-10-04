@@ -24,15 +24,17 @@ npm run installer -- patch   # idem, en passant d'abord à la version suivante
 La version n'est écrite que dans `package.json` (`tauri.conf.json` y renvoie).
 
 Prérequis : Node, Rust, outils Xcode, **ffmpeg** (`brew install ffmpeg`).
+Sous Linux (Pop!_OS) : voir la section dédiée du README (WebKitGTK, GStreamer,
+`npm run installer` ne marche pas).
 
 ## Organisation
 
 | | |
 |---|---|
-| `src-tauri/src/` | un module par domaine : `scan`, `sequences`, `annotations`, `grid`, `videos`, `stats`, `export`, `deletions`, `positions`, `pending`, `sun`, `traps`, `species`, `media`, `hash`, `location` |
+| `src-tauri/src/` | un module par domaine : `scan`, `sequences`, `annotations`, `grid`, `videos`, `stats`, `export`, `deletions`, `positions`, `pending`, `sun`, `traps`, `species`, `media`, `hash`, `location`, `lock`, `root` |
 | `src-tauri/migrations/` | SQL numéroté, embarqué dans le binaire, appliqué au démarrage |
 | `src/views/` | un fichier par écran ; `src/components/` pour le partagé |
-| Tests | **Rust uniquement** — 141, dont 8 d'intégration sur de vraies vidéos générées par ffmpeg. Pas de test front, pas d'ESLint. |
+| Tests | **Rust uniquement** — 158, dont 8 d'intégration sur de vraies vidéos générées par ffmpeg. Pas de test front, pas d'ESLint. |
 
 Deux onglets permanents, Statistiques (défaut) et Vidéos ; **Dépouiller** n'apparaît que
 s'il reste du travail (import ou séquences non dépouillées) ; le reste (dossiers, base,
@@ -57,6 +59,9 @@ pièges, espèces, thème) est dans **Réglages** (`src/views/Settings.tsx`). Vo
    racine ; un échec ne marque pas la vidéo supprimée.
 8. **La base introuvable n'est jamais remplacée par une vide.** Elle peut vivre hors
    du dossier de données (`location.rs`) ; en `tauri dev`, elle vit dans `dev/`.
+   Elle peut être **partagée entre le Mac et Linux via kDrive** : verrou (`lock.rs`),
+   racine propre à chaque machine et chemins réécrits à l'ouverture (`root.rs`), journal
+   `delete` et non WAL, refus d'une base plus récente que l'application. Voir `spec.md` §4.
 9. **Français partout** : interface, commentaires, noms de tests. Le code technique
    (types, champs SQL) reste en anglais.
 

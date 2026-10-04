@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { dataLocation, gridPage, pendingVideos } from './api';
-import type { DataLocation, PendingReport } from './api';
+import type { DataLocation, PendingReport, Rebase } from './api';
 import { DataLocationPanel } from './components/DataLocationPanel';
 import { EMPTY_FILTER } from './components/Filters';
 import { useTheme } from './theme';
@@ -49,10 +49,16 @@ export default function App() {
   // Base introuvable au démarrage : rien d'autre ne peut fonctionner, on n'affiche que
   // de quoi la retrouver.
   const [missingBase, setMissingBase] = useState<DataLocation | null>(null);
+  // Base venue de l'autre ordinateur : ses chemins ont été réécrits à l'ouverture. On le
+  // dit, plutôt que de le faire en silence.
+  const [rebased, setRebased] = useState<Rebase | null>(null);
 
   useEffect(() => {
     dataLocation()
-      .then((l) => setMissingBase(l.error ? l : null))
+      .then((l) => {
+        setMissingBase(l.error ? l : null);
+        setRebased(l.root_rebased);
+      })
       .catch(() => undefined);
   }, []);
 
@@ -163,6 +169,19 @@ export default function App() {
         {error && (
           <div className="panel notice notice--danger">
             <p className="danger">{error}</p>
+          </div>
+        )}
+        {rebased && (
+          <div className="panel notice stack">
+            <p>
+              Base venue de l’autre ordinateur : les chemins des vidéos ont été adaptés à
+              celui-ci ({rebased.from} → {rebased.to}). {rebased.found} vidéo
+              {rebased.found > 1 ? 's' : ''} retrouvée{rebased.found > 1 ? 's' : ''} sur{' '}
+              {rebased.total}.
+            </p>
+            <div className="row row--flush">
+              <button onClick={() => setRebased(null)}>Compris</button>
+            </div>
           </div>
         )}
 

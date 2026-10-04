@@ -29,6 +29,131 @@ Prérequis : Node, Rust, les outils en ligne de commande Xcode, et **ffmpeg**
 > et enfin le `PATH`. L'embarquer reste à faire avant toute distribution
 > (`spec.md` §4 le prévoit).
 
+## Installer le projet depuis zéro sur Linux (Pop!_OS)
+
+Testé pour Pop!_OS 22.04 et 24.04 (base Ubuntu). Le code est le même que sur Mac :
+seuls les prérequis et l'installation de l'application changent.
+
+### 1. Paquets système
+
+```bash
+sudo apt update
+sudo apt install -y build-essential curl wget file git pkg-config libssl-dev \
+  libwebkit2gtk-4.1-dev libxdo-dev libayatana-appindicator3-dev librsvg2-dev
+```
+
+Ce sont les dépendances de Tauri 2 : la fenêtre est une WebKitGTK.
+
+### 2. Lecture des vidéos dans la fenêtre : GStreamer
+
+Sous Linux, la balise `<video>` de WebKitGTK passe par **GStreamer**. Sans ses greffons,
+l'application indexe bien les vidéos (c'est ffmpeg qui les lit) mais la lecture affiche
+« Lecture impossible ». Le H.264 des pièges demande les greffons `bad`, `ugly` et
+`libav` :
+
+```bash
+sudo apt install -y gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
+  gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav
+```
+
+### 3. ffmpeg
+
+```bash
+sudo apt install -y ffmpeg
+```
+
+Il s'installe dans `/usr/bin`, que l'application sonde déjà (voir `media.rs`). Vérifier
+avec `ffprobe -version`.
+
+### 4. Rust
+
+```bash
+curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+```
+
+Accepter l'installation par défaut, puis ouvrir un nouveau terminal (ou
+`source "$HOME/.cargo/env"`). Vérifier avec `rustc --version`.
+
+### 5. Node
+
+Le Node des dépôts Ubuntu est trop ancien pour Vite 8 (il faut au moins 20.19 ou
+22.12). Passer par nvm :
+
+```bash
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/master/install.sh | bash
+```
+
+Ouvrir un nouveau terminal, puis :
+
+```bash
+nvm install --lts
+```
+
+Vérifier avec `node --version`.
+
+### 6. Le projet
+
+```bash
+git clone https://github.com/victorprouff/spoor-video.git ~/code/spoor-video
+cd ~/code/spoor-video
+npm install
+npm run tauri:dev
+```
+
+La première compilation Rust prend plusieurs minutes. Pour vérifier que tout est en
+place :
+
+```bash
+npm run typecheck
+cd src-tauri && cargo test
+```
+
+`cargo test` fabrique de vraies vidéos avec ffmpeg : s'il passe, ffmpeg est bien trouvé.
+
+### 7. Installer l'application (facultatif)
+
+`npm run installer` est propre au Mac (`/Applications`, `osascript`, `ditto`) et ne
+fonctionne pas sous Linux. À la place, construire un paquet `.deb` et l'installer :
+
+```bash
+npm run tauri -- build --bundles deb
+sudo apt install ./src-tauri/target/release/bundle/deb/*.deb
+```
+
+Pour mettre à jour, relancer les deux commandes. La version se change toujours dans
+`package.json` (`npm version patch --no-git-tag-version`).
+
+### Où vivent les données sous Linux
+
+| | Mac | Linux |
+|---|---|---|
+| Base et vignettes | `~/Library/Application Support/fr.victorprouff.spoorvideo/` | `~/.local/share/fr.victorprouff.spoorvideo/` |
+| Journal | `~/Library/Logs/fr.victorprouff.spoorvideo/` | `~/.local/share/fr.victorprouff.spoorvideo/logs/` |
+| Corbeille | celle du Finder | celle du bureau (`~/.local/share/Trash`) |
+
+En développement, le sous-dossier `dev/` s'applique aussi.
+
+### Points d'attention
+
+- **Partager la base avec le Mac via kDrive** : sur le Mac, Réglages → Base de données →
+  « Déplacer la base… » vers un dossier kDrive (pas **dans** la racine des vidéos). Sous
+  Linux, une fois kDrive synchronisé, « Ouvrir une autre base… » sur ce même dossier, puis
+  Réglages → « Désigner le dossier sur cette machine… » pour indiquer où se trouve ici la
+  racine des vidéos. Les chemins sont ensuite adaptés d'eux-mêmes à chaque changement de
+  machine (voir `spec.md` §4, « Base partagée entre deux machines »).
+  **Toujours fermer l'application avant de changer de machine** et laisser kDrive
+  synchroniser : tant que la base est ouverte sur l'une, l'autre refuse de l'ouvrir.
+  Mettre à jour les deux machines ensemble : une version plus ancienne refuse une base
+  migrée par une plus récente.
+- **kDrive** : installer le client kDrive pour Linux (AppImage d'Infomaniak) si l'on
+  veut travailler sur les vraies vidéos, puis choisir sa racine dans Réglages.
+- **Fenêtre blanche ou vide** au lancement, fréquente avec une carte NVIDIA : c'est un
+  problème connu de WebKitGTK. Lancer avec
+  `WEBKIT_DISABLE_DMABUF_RENDERER=1 npm run tauri:dev`, et ajouter cette variable à
+  `~/.profile` si cela règle le problème.
+- **Port 1420 occupé** : `lsof -ti:1420 | xargs -r kill -9` (le `-r` de GNU évite
+  d'appeler `kill` sans argument).
+
 ## Installer et mettre à jour l'application
 
 L'application s'installe sur le Mac depuis les sources. Aucun `.dmg`, aucun

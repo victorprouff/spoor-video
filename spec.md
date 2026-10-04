@@ -176,7 +176,7 @@ dossier de données de l'application ; on peut les **déplacer n'importe où**, 
 choix est retenu dans `location.json`, qui reste dans le dossier de données : la base ne
 peut pas dire elle-même où elle est.
 
-- **Déplacer copie**, par `VACUUM INTO` (cohérent malgré le WAL), puis redémarre sur la
+- **Déplacer copie**, par `VACUUM INTO` (copie cohérente quel que soit le journal), puis redémarre sur la
   copie. L'original reste en place : on ne le supprime qu'après avoir vérifié la copie.
   On ne copie jamais par-dessus une base existante : on l'ouvre.
 - **Ouvrir une autre base** ne copie rien, et **revenir à l'emplacement par défaut** non
@@ -187,8 +187,43 @@ peut pas dire elle-même où elle est.
 - Les vignettes sont enregistrées par chemin absolu ; à l'ouverture, elles sont
   rattachées au dossier courant.
 - À éviter : placer la base **dans** la racine, où son dossier passerait pour un piège.
-  Un dossier synchronisé (kDrive) convient, à condition de n'ouvrir la base que depuis un
-  seul Mac à la fois.
+- **Journal classique (`delete`), pas WAL.** Le WAL laisse à côté de la base deux
+  fichiers qui en font partie ; un dossier synchronisé peut envoyer l'un sans l'autre, et
+  l'autre machine reçoit une base corrompue. Le WAL n'apportait rien : une seule
+  connexion, derrière un verrou.
+- **Une base plus récente que l'application est refusée**, avant toute écriture : une
+  machine pas encore mise à jour ne doit pas écrire dans une structure qu'elle ne connaît
+  pas.
+
+### Base partagée entre deux machines
+
+La base peut vivre dans un dossier kDrive et servir au Mac et au poste Linux, **l'un
+après l'autre**.
+
+- **Un verrou** (`spoor-video.lock`, à côté de la base) dit sur quelle machine elle est
+  ouverte. Il est posé à l'ouverture et retiré en quittant. L'autre machine refuse alors
+  de l'ouvrir et dit où elle l'est : ouverte des deux côtés, kDrive garderait deux
+  versions en conflit et le travail de l'une serait perdu. On peut **passer outre**
+  (machine éteinte, application plantée), après confirmation. Le verrou laissé par cette
+  même machine (plantage) est repris sans question. Ce n'est qu'un garde-fou : kDrive met
+  quelques secondes à le faire voyager.
+- **La racine dépend de la machine** : `/Users/…/kDrive/Pièges` d'un côté,
+  `/home/…/kDrive/Pièges` de l'autre. La base retient la racine sous laquelle ses chemins
+  sont écrits ; chaque machine retient la sienne dans `root.json`, à côté de
+  `location.json`, hors de la base. À l'ouverture :
+  - la racine de la base existe ici : c'est elle, et la machine la retient ;
+  - elle n'existe pas, mais celle de la machine oui : les chemins des vidéos (et des
+    vidéos écartées) sont **réécrits** vers la racine d'ici. Seul le début change : kDrive
+    reproduit l'arborescence. C'est **annoncé** par un bandeau, avec le nombre de vidéos
+    retrouvées ;
+  - aucune vidéo connue ne se trouve sous la racine d'ici : ce n'est pas le même dossier,
+    rien n'est réécrit.
+- **La première fois** sur une machine, Réglages signale que la racine n'existe pas ici
+  et propose de **désigner le dossier correspondant**. Refusé si aucune vidéo connue ne
+  s'y trouve : réécrire vers un autre dossier ferait passer tout l'index pour disparu.
+  « Changer » reste le moyen d'indexer un autre dossier, sans réécriture.
+- On ne réindexe rien : l'empreinte de milliers de vidéos lues à travers kDrive prendrait
+  des heures. Les vignettes suivent déjà la base (rattachement ci-dessus).
 
 En développement (`tauri dev`), tout vit dans le sous-dossier `dev/` du dossier de
 données, avec son propre `location.json` : une séance de travail ne touche jamais la

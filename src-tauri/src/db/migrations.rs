@@ -67,6 +67,18 @@ pub fn apply(conn: &Connection) -> Result<(), DbError> {
         )
         .unwrap_or(0);
 
+    // Une base partagée entre deux machines peut avoir été migrée par une version plus
+    // récente de l'application. La version d'ici ne connaît pas cette structure : y
+    // écrire risquerait de l'abîmer. On refuse avant toute écriture.
+    let known = MIGRATIONS.last().map(|m| m.0).unwrap_or(0);
+    if applied > known {
+        return Err(DbError::Other(format!(
+            "Cette base a été mise à jour par une version plus récente de Spoor Vidéo \
+             (structure n° {applied}, celle-ci s'arrête au n° {known}). \
+             Mets l'application à jour sur cette machine avant de l'ouvrir."
+        )));
+    }
+
     for (version, name, sql) in MIGRATIONS {
         if *version <= applied {
             continue;
@@ -132,6 +144,20 @@ mod tests {
             .query_row("SELECT COUNT(*) FROM species", [], |r| r.get(0))
             .unwrap();
         assert!(species > 20, "les espèces ne doivent pas être dupliquées");
+    }
+
+    #[test]
+    fn une_base_plus_recente_que_l_application_est_refusee() {
+        let conn = migrated();
+        conn.execute(
+            "INSERT INTO schema_migrations (version, name, applied_at)
+             VALUES (999, 'venue_du_futur', datetime('now'))",
+            [],
+        )
+        .unwrap();
+        let err = apply(&conn).unwrap_err().to_string();
+        assert!(err.contains("plus récente"), "{err}");
+        assert!(err.contains("999"), "{err}");
     }
 
     #[test]

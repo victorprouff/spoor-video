@@ -20,11 +20,15 @@ use crate::sequences::{self, RegroupReport, Sequence};
 use crate::species::{self, Species, SpeciesInput};
 use crate::traps::{self, Trap, TrapInput};
 use crate::location::{self, DataLocation};
-use crate::{media, settings};
+use crate::root::{self, Rebase};
+use crate::{lock, media, settings};
 
 #[derive(serde::Serialize)]
 pub struct AppState {
     root_path: Option<String>,
+    /// La racine existe sur cette machine. Faux pour une base venue de l'autre
+    /// ordinateur tant qu'on n'a pas désigné son dossier ici.
+    root_found: bool,
     ffmpeg_available: bool,
     traps: Vec<Trap>,
     videos_count: i64,
@@ -36,9 +40,11 @@ pub struct AppState {
 #[tauri::command]
 pub fn app_state(db: tauri::State<'_, Db>) -> Result<AppState, DbError> {
     let conn = db.conn.lock().unwrap();
+    let root_path = settings::get(&conn, settings::ROOT_PATH)?;
 
     Ok(AppState {
-        root_path: settings::get(&conn, settings::ROOT_PATH)?,
+        root_found: root_path.as_deref().is_some_and(|r| std::path::Path::new(r).is_dir()),
+        root_path,
         ffmpeg_available: media::available(),
         traps: traps::list(&conn)?,
         videos_count: conn.query_row(
@@ -72,6 +78,7 @@ pub fn app_state(db: tauri::State<'_, Db>) -> Result<AppState, DbError> {
 pub fn set_root_path(
     app: tauri::AppHandle,
     db: tauri::State<'_, Db>,
+    loc: tauri::State<'_, DataLocation>,
     path: String,
 ) -> Result<(), DbError> {
     let candidate = PathBuf::from(&path);
@@ -82,11 +89,28 @@ pub fn set_root_path(
         let conn = db.conn.lock().unwrap();
         settings::set(&conn, settings::ROOT_PATH, &path)?;
     }
+    root::remember(&loc.home, &candidate)?;
     // La nouvelle racine devient lisible immédiatement, sans redémarrer.
     app.asset_protocol_scope()
         .allow_directory(&path, true)
         .map_err(|e| DbError::Other(format!("racine non autorisée à la lecture : {e}")))?;
     Ok(())
+}
+
+/// Désigne, sur cette machine, le dossier qui correspond à la racine de la base (base
+/// venue de l'autre ordinateur) : les chemins sont réécrits, rien n'est réindexé.
+#[tauri::command]
+pub fn relocate_root(
+    app: tauri::AppHandle,
+    db: tauri::State<'_, Db>,
+    loc: tauri::State<'_, DataLocation>,
+    path: String,
+) -> Result<Rebase, DbError> {
+    let rebase = root::relocate(&db.conn.lock().unwrap(), &loc.home, &PathBuf::from(&path))?;
+    app.asset_protocol_scope()
+        .allow_directory(&rebase.to, true)
+        .map_err(|e| DbError::Other(format!("racine non autorisée à la lecture : {e}")))?;
+    Ok(rebase)
 }
 
 // --- Emplacement de la base -----------------------------------------------
@@ -120,9 +144,21 @@ pub fn use_data_dir(loc: tauri::State<'_, DataLocation>, dir: Option<String>) ->
     location::remember(&loc.home, &dest)
 }
 
+/// Redémarre. La base ouverte ici est d'abord rendue : `restart` quitte le processus
+/// sans passer par la fin normale de l'application, où le verrou est sinon retiré.
 #[tauri::command]
 pub fn restart_app(app: tauri::AppHandle) {
+    if app.try_state::<Db>().is_some() {
+        location::close(&app.state::<DataLocation>());
+    }
     app.restart();
+}
+
+/// Ouvrir quand même une base verrouillée par une autre machine (éteinte, ou dont
+/// l'application a planté). Le verrou est retiré ; le front redémarre ensuite.
+#[tauri::command]
+pub fn force_open(loc: tauri::State<'_, DataLocation>) -> Result<(), DbError> {
+    lock::force(&loc.dir)
 }
 
 /// Rattache un dossier de premier niveau à un piège : soit un piège existant,

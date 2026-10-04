@@ -13,6 +13,8 @@ use std::path::{Path, PathBuf};
 use rusqlite::Connection;
 
 use crate::db::{Db, DbError};
+use crate::lock::{self, LockInfo};
+use crate::root::{self, Rebase};
 
 pub const DB_FILE: &str = "spoor-video.sqlite";
 const THUMBS_DIR: &str = "thumbnails";
@@ -35,6 +37,11 @@ pub struct DataLocation {
     pub dev: bool,
     /// Pourquoi la base n'a pas pu être ouverte. `None` si elle l'est.
     pub error: Option<String>,
+    /// La base est ouverte sur une autre machine : c'est pour cela qu'elle ne l'est pas ici.
+    pub locked_by: Option<LockInfo>,
+    /// Les chemins des vidéos ont été réécrits vers la racine de cette machine à
+    /// l'ouverture (base venue de l'autre ordinateur).
+    pub root_rebased: Option<Rebase>,
 }
 
 impl DataLocation {
@@ -65,6 +72,8 @@ pub fn resolve(home: &Path) -> DataLocation {
         is_default: true,
         dev: cfg!(debug_assertions),
         error: None,
+        locked_by: None,
+        root_rebased: None,
     };
     let config = home.join(CONFIG_FILE);
     if !config.exists() {
@@ -88,7 +97,11 @@ pub fn resolve(home: &Path) -> DataLocation {
 /// Ailleurs qu'à l'emplacement par défaut, rien n'est créé : si le dossier ou la base
 /// manquent, c'est que le disque est débranché ou le dossier déplacé, et ouvrir une
 /// base neuve ferait croire que tout le travail a disparu.
-pub fn open(loc: &DataLocation) -> Result<Db, String> {
+///
+/// Une base verrouillée par une autre machine n'est pas ouverte (voir `lock`). Une fois
+/// ouverte, elle est verrouillée par celle-ci, et ses chemins accordés à la racine d'ici
+/// (voir `root`).
+pub fn open(loc: &mut DataLocation) -> Result<Db, String> {
     if let Some(e) = &loc.error {
         return Err(e.clone());
     }
@@ -103,9 +116,25 @@ pub fn open(loc: &DataLocation) -> Result<Db, String> {
             return Err(format!("Aucune base dans {}.", loc.dir.display()));
         }
     }
+    let host = lock::this_host();
+    if let Some(other) = lock::held_elsewhere(&loc.dir, &host) {
+        let msg = format!("Elle est ouverte sur « {} ».", other.host);
+        loc.locked_by = Some(other);
+        return Err(msg);
+    }
     let db = Db::open(&loc.dir).map_err(|e| e.to_string())?;
-    relink_thumbnails(&db.conn.lock().unwrap(), &loc.thumbs_dir()).map_err(|e| e.to_string())?;
+    lock::acquire(&loc.dir, &host).map_err(|e| format!("verrou impossible à poser : {e}"))?;
+    {
+        let conn = db.conn.lock().unwrap();
+        relink_thumbnails(&conn, &loc.thumbs_dir()).map_err(|e| e.to_string())?;
+        loc.root_rebased = root::sync_on_open(&conn, &loc.home).map_err(|e| e.to_string())?;
+    }
     Ok(db)
+}
+
+/// Retire le verrou de cette machine. À appeler en quittant ou avant de redémarrer.
+pub fn close(loc: &DataLocation) {
+    lock::release(&loc.dir, &lock::this_host());
 }
 
 /// Les vignettes sont enregistrées par chemin absolu : après un déplacement, on les fait
@@ -191,7 +220,7 @@ mod tests {
         let loc = resolve(home.path());
         assert!(loc.is_default);
         assert_eq!(loc.dir, home.path());
-        assert!(open(&loc).is_ok());
+        assert!(open(&mut loc.clone()).is_ok());
         assert!(loc.db_path().is_file());
     }
 
@@ -203,7 +232,7 @@ mod tests {
 
         let loc = resolve(home.path());
         assert!(!loc.is_default);
-        assert!(open(&loc).err().unwrap().contains("introuvable"));
+        assert!(open(&mut loc.clone()).err().unwrap().contains("introuvable"));
         assert!(!ailleurs.exists(), "rien ne doit avoir été créé");
     }
 
@@ -213,7 +242,7 @@ mod tests {
         let vide = tempfile::tempdir().unwrap();
         remember(home.path(), vide.path()).unwrap();
 
-        assert!(open(&resolve(home.path())).err().unwrap().contains("Aucune base"));
+        assert!(open(&mut resolve(home.path())).err().unwrap().contains("Aucune base"));
         assert!(!vide.path().join(DB_FILE).exists());
     }
 
@@ -223,7 +252,7 @@ mod tests {
         std::fs::write(home.path().join(CONFIG_FILE), "pas du json").unwrap();
 
         let loc = resolve(home.path());
-        assert!(open(&loc).err().unwrap().contains("illisible"));
+        assert!(open(&mut loc.clone()).err().unwrap().contains("illisible"));
         assert!(!loc.db_path().exists());
     }
 
@@ -231,7 +260,7 @@ mod tests {
     fn deplacer_copie_la_base_et_les_vignettes_puis_les_relie() {
         let home = tempfile::tempdir().unwrap();
         let from = default_at(home.path());
-        let db = open(&from).unwrap();
+        let db = open(&mut from.clone()).unwrap();
         {
             let conn = db.conn.lock().unwrap();
             conn.execute(
@@ -262,7 +291,7 @@ mod tests {
 
         let to = resolve(home.path());
         assert_eq!(to.dir, dest.path());
-        let moved = open(&to).unwrap();
+        let moved = open(&mut to.clone()).unwrap();
         let conn = moved.conn.lock().unwrap();
         let (name, thumb): (String, String) = conn
             .query_row(
@@ -280,13 +309,33 @@ mod tests {
     fn deplacer_refuse_d_ecraser_une_base_existante() {
         let home = tempfile::tempdir().unwrap();
         let from = default_at(home.path());
-        let db = open(&from).unwrap();
+        let db = open(&mut from.clone()).unwrap();
         let dest = tempfile::tempdir().unwrap();
         std::fs::write(dest.path().join(DB_FILE), b"autre base").unwrap();
 
         let err = copy_to(&db.conn.lock().unwrap(), &from, dest.path()).unwrap_err();
         assert!(err.to_string().contains("déjà une base"));
         assert_eq!(std::fs::read(dest.path().join(DB_FILE)).unwrap(), b"autre base");
+    }
+
+    #[test]
+    fn une_base_ouverte_sur_une_autre_machine_n_est_pas_ouverte() {
+        let home = tempfile::tempdir().unwrap();
+        lock::acquire(home.path(), "MacBook de Victor").unwrap();
+        let mut loc = resolve(home.path());
+        assert!(open(&mut loc).err().unwrap().contains("MacBook de Victor"));
+        assert_eq!(loc.locked_by.unwrap().host, "MacBook de Victor");
+        assert!(!loc.dir.join(DB_FILE).exists(), "rien ne doit avoir été ouvert");
+    }
+
+    #[test]
+    fn ouvrir_verrouille_et_fermer_deverrouille() {
+        let home = tempfile::tempdir().unwrap();
+        let mut loc = resolve(home.path());
+        let _db = open(&mut loc).unwrap();
+        assert_eq!(lock::read(&loc.dir).unwrap().host, lock::this_host());
+        close(&loc);
+        assert!(lock::read(&loc.dir).is_none());
     }
 
     #[test]

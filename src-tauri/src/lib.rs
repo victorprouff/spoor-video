@@ -6,9 +6,11 @@ mod export;
 mod grid;
 mod hash;
 mod location;
+mod lock;
 mod media;
 mod pending;
 mod positions;
+mod root;
 mod scan;
 mod sequences;
 mod settings;
@@ -79,8 +81,8 @@ pub fn run() {
             // La base vit par défaut dans le dossier de données de l'application, ou là
             // où on l'a déplacée (voir `location`). Si elle est introuvable, l'interface
             // ne montre que l'écran qui permet d'y remédier.
-            let loc = location::resolve(&location::home(&app.path().app_data_dir()?));
-            let loc = match location::open(&loc) {
+            let mut loc = location::resolve(&location::home(&app.path().app_data_dir()?));
+            let loc = match location::open(&mut loc) {
                 Ok(db) => {
                     log::info!("base ouverte : {}", db.path.display());
                     if let Err(e) = app.asset_protocol_scope().allow_directory(loc.thumbs_dir(), false) {
@@ -123,6 +125,8 @@ pub fn run() {
             commands::use_data_dir,
             commands::restart_app,
             commands::set_root_path,
+            commands::relocate_root,
+            commands::force_open,
             commands::link_folder_to_trap,
             commands::scan_root,
             commands::list_traps,
@@ -159,8 +163,17 @@ pub fn run() {
             commands::list_videos,
             commands::set_video_favorite,
         ])
-        .run(tauri::generate_context!())
-        .expect("erreur au lancement de l'application");
+        .build(tauri::generate_context!())
+        .expect("erreur au lancement de l'application")
+        .run(|app, event| {
+            // En quittant, la base est rendue à l'autre machine. Seulement si elle a été
+            // ouverte ici : sinon le verrou n'est pas le nôtre.
+            if let tauri::RunEvent::Exit = event {
+                if app.try_state::<Db>().is_some() {
+                    location::close(&app.state::<location::DataLocation>());
+                }
+            }
+        });
 }
 
 /// Surface exposée aux tests d'intégration. Ces fonctions ne sont pas une API :
