@@ -1448,6 +1448,22 @@ input.tiny {
   display: block;
 }
 
+/* Bouton carré, de la même hauteur qu'un bouton à texte (34 px) : les deux se
+   côtoient dans la barre du lecteur. */
+.icon-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+}
+
+.icon-button .icon {
+  width: 18px;
+  height: 18px;
+}
+
 .tab--icon {
   display: inline-flex;
   align-items: center;

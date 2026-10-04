@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { videoSrc } from '../videoSrc';
 import { getCurrentWindow } from '@tauri-apps/api/window';
+import {
+  CloseIcon,
+  FullscreenIcon,
+  NextIcon,
+  PrevIcon,
+  SoundIcon,
+  StarIcon,
+} from './icons';
 
 /** Le même réglage de son que le mode plein écran : un seul choix, partout. */
 function storedMuted(): boolean {
@@ -150,27 +158,50 @@ export function VideoPlayer({
           <strong>{title}</strong>
           {position && <span className="muted small">{position}</span>}
           <span className="app__spacer" />
-          <button onClick={() => onPrev?.()} disabled={!onPrev} title="Flèche gauche">
-            Précédente
+          <button
+            className="icon-button"
+            onClick={() => onPrev?.()}
+            disabled={!onPrev}
+            aria-label="Vidéo précédente"
+            title="Vidéo précédente (←)"
+          >
+            <PrevIcon />
           </button>
-          <button onClick={() => onNext?.()} disabled={!onNext} title="Flèche droite">
-            Suivante
+          <button
+            className="icon-button"
+            onClick={() => onNext?.()}
+            disabled={!onNext}
+            aria-label="Vidéo suivante"
+            title="Vidéo suivante (→)"
+          >
+            <NextIcon />
           </button>
-          <button onClick={() => setMuted((m) => !m)} title="Maj+M">
-            {muted ? 'Son coupé' : 'Son actif'}
+          <button
+            className="icon-button"
+            onClick={() => setMuted((m) => !m)}
+            aria-label={muted ? 'Rétablir le son' : 'Couper le son'}
+            title={muted ? 'Son coupé — rétablir (Maj+M)' : 'Son actif — couper (Maj+M)'}
+          >
+            <SoundIcon muted={muted} />
           </button>
           {onToggleFavorite && (
             <button
-              className={favorite ? 'star-button star-button--on' : 'star-button'}
+              className={favorite ? 'icon-button star-button star-button--on' : 'icon-button star-button'}
               onClick={onToggleFavorite}
               aria-pressed={!!favorite}
-              title="Maj+F"
+              aria-label="Favorite"
+              title={favorite ? 'Favorite — retirer (Maj+F)' : 'Marquer comme favorite (Maj+F)'}
             >
-              {favorite ? '★ Favorite' : '☆ Favorite'}
+              <StarIcon filled={!!favorite} />
             </button>
           )}
-          <button onClick={toggleFull} title="F">
-            {full ? 'Quitter le plein écran' : 'Plein écran'}
+          <button
+            className="icon-button"
+            onClick={toggleFull}
+            aria-label={full ? 'Quitter le plein écran' : 'Plein écran'}
+            title={full ? 'Quitter le plein écran (F ou Échap)' : 'Plein écran (F)'}
+          >
+            <FullscreenIcon exit={full} />
           </button>
           {onReview && (
             <button
@@ -183,7 +214,9 @@ export function VideoPlayer({
               Dépouiller
             </button>
           )}
-          <button onClick={close}>Fermer</button>
+          <button className="icon-button" onClick={close} aria-label="Fermer" title="Fermer (Échap)">
+            <CloseIcon />
+          </button>
         </div>
 
         {failed ? (
