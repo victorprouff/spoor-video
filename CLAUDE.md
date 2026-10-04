@@ -17,15 +17,17 @@ Le contexte repris d'elle est dans [`SPOOR-CONTEXTE.md`](./SPOOR-CONTEXTE.md).
 npm run tauri:dev      # lance l'application (Vite + fenêtre Tauri)
 npm run typecheck      # tsc --noEmit
 cd src-tauri && cargo test
-npm run installer      # construit et remplace /Applications/Spoor Vidéo.app
+npm run installer      # construit et installe (Mac : /Applications ; Linux : .deb via apt)
 npm run installer -- patch   # idem, en passant d'abord à la version suivante
 ```
+
+Le `Makefile` les reprend : `make dev`, `make check`, `make install`,
+`make version V=patch` (committe, refuse si rien n'a changé), `make release V=patch`.
 
 La version n'est écrite que dans `package.json` (`tauri.conf.json` y renvoie).
 
 Prérequis : Node, Rust, outils Xcode, **ffmpeg** (`brew install ffmpeg`).
-Sous Linux (Pop!_OS) : voir la section dédiée du README (WebKitGTK, GStreamer,
-`npm run installer` ne marche pas).
+Sous Linux (Pop!_OS) : voir la section dédiée du README (WebKitGTK, GStreamer).
 
 ## Organisation
 

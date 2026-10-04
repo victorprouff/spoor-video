@@ -17,9 +17,22 @@ npm run tauri:dev
 |---|---|
 | `npm run tauri:dev` | lance l'application (Vite + fenêtre Tauri) |
 | `npm run tauri:build` | produit l'application installable |
-| `npm run installer` | construit et installe l'application dans `/Applications` |
+| `npm run installer` | construit et installe l'application (`/Applications` sur Mac, paquet `.deb` sous Linux) |
 | `npm run typecheck` | vérifie le TypeScript |
 | `cargo test` (dans `src-tauri/`) | tests Rust, dont les migrations |
+
+Le `Makefile` regroupe l'essentiel (`make` seul affiche l'aide) :
+
+| Commande | Rôle |
+|---|---|
+| `make dev` | libère le port 1420 puis lance l'application en développement |
+| `make check` | typecheck puis tests Rust |
+| `make install` | construit et installe la version courante, Mac ou Linux |
+| `make version V=patch` | passe à la version suivante et committe ; refuse si rien n'a changé depuis la précédente |
+| `make release V=patch` | `make version` puis `make install` |
+
+`V` vaut `patch` (défaut), `minor` ou `major` ; `M="…"` complète le message du commit
+(`Version 0.13.2 : …`). Les modifications en cours partent dans le commit de version.
 
 Prérequis : Node, Rust, les outils en ligne de commande Xcode, et **ffmpeg**
 (`brew install ffmpeg`).
@@ -116,17 +129,9 @@ cd src-tauri && cargo test
 
 ### 7. Installer l'application (facultatif)
 
-`npm run installer` est propre au Mac (`/Applications`, `osascript`, `ditto`) et ne
-fonctionne pas sous Linux. À la place, construire un paquet `.deb` et l'installer :
-
-```bash
-npm run tauri -- build --bundles deb
-sudo apt install ./src-tauri/target/release/bundle/deb/*.deb
-```
-
-Pour mettre à jour, relancer les deux commandes. La version se change toujours dans
-`package.json` (`npm version patch --no-git-tag-version`). Si le dossier `deb/`
-contient plusieurs versions, ne garder que la dernière dans la commande `apt`.
+Comme sur Mac, `npm run installer` (voir plus bas). Sous Linux, la commande construit
+un paquet `.deb`, ferme l'application si elle est ouverte et installe le paquet avec
+`apt` : elle demande le mot de passe `sudo`. Pour mettre à jour, la relancer.
 
 Le paquet s'appelle `spoor-video` et non « Spoor Vidéo » : dpkg refuse un nom de paquet
 avec un accent ou une majuscule. C'est le rôle de `src-tauri/tauri.linux.conf.json`,
@@ -166,8 +171,8 @@ En développement, le sous-dossier `dev/` s'applique aussi.
 
 ## Installer et mettre à jour l'application
 
-L'application s'installe sur le Mac depuis les sources. Aucun `.dmg`, aucun
-téléchargement.
+L'application s'installe depuis les sources, sur Mac comme sous Linux. Aucun `.dmg`,
+aucun téléchargement. La commande détecte le système.
 
 ```bash
 npm run installer -- patch
@@ -181,7 +186,8 @@ La commande :
 2. construit l'application en mode release. Il faut compter environ 3 minutes la
    première fois, moins ensuite ;
 3. ferme l'application si elle est ouverte ;
-4. remplace `/Applications/Spoor Vidéo.app`.
+4. sur Mac, remplace `/Applications/Spoor Vidéo.app` ; sous Linux, installe le paquet
+   `spoor-video` avec `apt` (mot de passe `sudo` demandé).
 
 Pour mettre à jour après une séance de travail, il suffit de la relancer. **Les données
 ne sont pas touchées** : elles vivent hors de l'application (voir plus bas).
