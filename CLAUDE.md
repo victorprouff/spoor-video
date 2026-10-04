@@ -31,10 +31,10 @@ Sous Linux (Pop!_OS) : voir la section dédiée du README (WebKitGTK, GStreamer,
 
 | | |
 |---|---|
-| `src-tauri/src/` | un module par domaine : `scan`, `sequences`, `annotations`, `grid`, `videos`, `stats`, `export`, `deletions`, `positions`, `pending`, `sun`, `traps`, `species`, `media`, `hash`, `location`, `lock`, `root` |
+| `src-tauri/src/` | un module par domaine : `scan`, `sequences`, `annotations`, `grid`, `videos`, `stats`, `export`, `deletions`, `positions`, `pending`, `sun`, `traps`, `species`, `media`, `hash`, `location`, `lock`, `root`, `stream` (vidéos servies en HTTP local, Linux) |
 | `src-tauri/migrations/` | SQL numéroté, embarqué dans le binaire, appliqué au démarrage |
 | `src/views/` | un fichier par écran ; `src/components/` pour le partagé |
-| Tests | **Rust uniquement** — 158, dont 8 d'intégration sur de vraies vidéos générées par ffmpeg. Pas de test front, pas d'ESLint. |
+| Tests | **Rust uniquement** — 163, dont 8 d'intégration sur de vraies vidéos générées par ffmpeg. Pas de test front, pas d'ESLint. |
 
 Deux onglets permanents, Statistiques (défaut) et Vidéos ; **Dépouiller** n'apparaît que
 s'il reste du travail (import ou séquences non dépouillées) ; le reste (dossiers, base,

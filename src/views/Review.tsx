@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { convertFileSrc } from '@tauri-apps/api/core';
+import { videoSrc } from '../videoSrc';
 
 import {
   CONFIDENCES,
@@ -317,7 +317,7 @@ export function Review({
           <video
             ref={videoRef}
             key={current.id}
-            src={convertFileSrc(current.file_path)}
+            src={videoSrc(current.file_path)}
             autoPlay
             loop={playable.length === 1}
             muted={muted}

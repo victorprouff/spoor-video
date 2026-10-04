@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { convertFileSrc } from '@tauri-apps/api/core';
+import { videoSrc } from '../videoSrc';
 import { getCurrentWindow } from '@tauri-apps/api/window';
 
 /** Le même réglage de son que le mode plein écran : un seul choix, partout. */
@@ -194,7 +194,7 @@ export function VideoPlayer({
         ) : (
           <video
             key={filePath}
-            src={convertFileSrc(filePath)}
+            src={videoSrc(filePath)}
             autoPlay
             loop
             controls

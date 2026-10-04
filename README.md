@@ -56,6 +56,10 @@ sudo apt install -y gstreamer1.0-plugins-base gstreamer1.0-plugins-good \
   gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav
 ```
 
+GStreamer ne sait pas lire le schéma `asset://` de Tauri : sous Linux, l'application sert
+donc les vidéos par un petit serveur local (`127.0.0.1`, voir `spec.md` §8). Si la
+lecture échoue malgré les greffons, chercher « serveur des vidéos » dans le journal.
+
 ### 3. ffmpeg
 
 ```bash
@@ -121,7 +125,13 @@ sudo apt install ./src-tauri/target/release/bundle/deb/*.deb
 ```
 
 Pour mettre à jour, relancer les deux commandes. La version se change toujours dans
-`package.json` (`npm version patch --no-git-tag-version`).
+`package.json` (`npm version patch --no-git-tag-version`). Si le dossier `deb/`
+contient plusieurs versions, ne garder que la dernière dans la commande `apt`.
+
+Le paquet s'appelle `spoor-video` et non « Spoor Vidéo » : dpkg refuse un nom de paquet
+avec un accent ou une majuscule. C'est le rôle de `src-tauri/tauri.linux.conf.json`,
+que Tauri fusionne avec `tauri.conf.json` sous Linux seulement. Le nom affiché dans le
+menu des applications reste « Spoor Vidéo » grâce à `src-tauri/linux/spoor-video.desktop`.
 
 ### Où vivent les données sous Linux
 

@@ -17,6 +17,7 @@ mod settings;
 mod sun;
 mod species;
 mod stats;
+mod stream;
 mod traps;
 mod videos;
 
@@ -54,6 +55,12 @@ fn db_status(db: tauri::State<'_, Db>) -> Result<DbStatus, DbError> {
         videos_count: count("videos")?,
         sequences_count: count("sequences")?,
     })
+}
+
+/// Adresse du serveur local des vidéos, ou `None` : la fenêtre lit alors par `asset://`.
+#[tauri::command]
+fn video_base_url(server: tauri::State<'_, Option<stream::VideoServer>>) -> Option<String> {
+    server.inner().as_ref().map(|s| s.base_url.clone())
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -115,10 +122,27 @@ pub fn run() {
                 }
             }
 
+            // Sous Linux, GStreamer ne sait pas lire `asset://` : les vidéos passent par un
+            // serveur local qui applique la même autorisation (voir `stream`).
+            let server = if cfg!(target_os = "linux") {
+                let handle = app.handle().clone();
+                match stream::start(move |p| handle.asset_protocol_scope().is_allowed(p)) {
+                    Ok(s) => Some(s),
+                    Err(e) => {
+                        log::error!("serveur des vidéos non démarré : {e}");
+                        None
+                    }
+                }
+            } else {
+                None
+            };
+            app.manage(server);
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             db_status,
+            video_base_url,
             commands::app_state,
             commands::data_location,
             commands::move_data,

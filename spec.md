@@ -476,6 +476,16 @@ raison qu'il serait tentant : il confisquerait les flèches pour avancer dans le
 et défiler d'une vidéo à l'autre redeviendrait impossible. Fermer le lecteur rend
 toujours la fenêtre, sinon l'application resterait plein écran sur la liste.
 
+**Sous Linux, les vidéos ne passent pas par `asset://`.** WebKitGTK confie la balise
+`<video>` à GStreamer, qui ne lit que `http(s)`, `blob` et `file` : avec `asset://`, la
+lecture échouait aussitôt (`FormatError`), quel que soit le codec, alors que les
+vignettes s'affichaient. L'application y démarre donc un petit serveur HTTP
+(`stream.rs`) : écoute sur `127.0.0.1` seulement, jeton aléatoire à chaque lancement dans
+chaque adresse, requêtes partielles (`Range`) pour se déplacer dans la vidéo. Il ne sert
+que ce que le protocole `asset` autorise, avec le même contrôle : la racine des vidéos,
+rien d'autre. Le front choisit l'adresse par `videoSrc` (`src/videoSrc.ts`). Sur Mac, le
+serveur n'est pas démarré et rien ne change.
+
 Pas de responsive mobile : l'application est de bureau, sur un grand écran.
 
 ---
