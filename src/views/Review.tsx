@@ -7,10 +7,12 @@ import {
   annotateSequences,
   listSequenceVideos,
   mergeSequences,
+  setVideoFavorite,
   splitSequence,
 } from '../api';
 import type { Confidence, GridTile, SequenceVideo, Species } from '../api';
 import { SpeciesPicker } from '../components/SpeciesPicker';
+import { StarIcon } from '../components/icons';
 import { formatDateTime } from '../format';
 
 /**
@@ -163,6 +165,19 @@ export function Review({
     }
   }, [sequence, current, videoIndex, onChanged, onClose, onError, say]);
 
+  /** L'étoile porte sur la vidéo lue, pas sur la séquence (§7) ; elle ne valide rien. */
+  const toggleFavorite = useCallback(async () => {
+    if (!current) return;
+    const favorite = !current.favorite;
+    try {
+      await setVideoFavorite([current.id], favorite);
+      setVideos((vs) => vs && vs.map((v) => (v.id === current.id ? { ...v, favorite } : v)));
+      say(favorite ? 'Ajoutée aux favorites' : 'Retirée des favorites');
+    } catch (e) {
+      onError(String(e));
+    }
+  }, [current, onError, say]);
+
   const mergeWithPrevious = useCallback(async () => {
     const previous = queue[index + 1]; // la file est triée du plus récent au plus ancien
     if (!sequence || !previous) {
@@ -251,6 +266,11 @@ export function Review({
         e.preventDefault();
         return void mergeWithPrevious();
       }
+      // Maj+E comme « étoile », le même raccourci que dans le lecteur de l'onglet Vidéos.
+      if (e.shiftKey && key.toLowerCase() === 'e') {
+        e.preventDefault();
+        return void toggleFavorite();
+      }
       if (e.shiftKey) return;
 
       const match = species.find((s) => s.shortcut_key === key.toLowerCase());
@@ -271,6 +291,7 @@ export function Review({
     toggleSpecies,
     split,
     mergeWithPrevious,
+    toggleFavorite,
     onClose,
   ]);
 
@@ -299,6 +320,23 @@ export function Review({
           {sequence.video_count} vidéo(s)
           {current && playable.length > 1 && ` · ${videoIndex + 1}/${playable.length}`}
         </span>
+        {current && (
+          <button
+            className={
+              current.favorite ? 'icon-button star-button star-button--on' : 'icon-button star-button'
+            }
+            onClick={() => void toggleFavorite()}
+            aria-pressed={current.favorite}
+            aria-label="Favorite"
+            title={
+              current.favorite
+                ? 'Vidéo favorite — retirer (Maj+E)'
+                : 'Marquer cette vidéo comme favorite (Maj+E)'
+            }
+          >
+            <StarIcon filled={current.favorite} />
+          </button>
+        )}
         <span className="app__spacer" />
         <span className="muted">
           {index + 1} / {queue.length}
@@ -416,6 +454,7 @@ function Help({ onClose, species }: { onClose: () => void; species: Species[] })
     ['Maj+M', 'couper ou rétablir le son'],
     ['Maj+S', 'scinder la séquence à la vidéo courante'],
     ['Maj+F', 'fusionner avec la séquence précédente'],
+    ['Maj+E', 'mettre ou retirer la vidéo courante des favorites'],
     ['Échap', 'fermer le mode plein écran'],
   ];
   return (

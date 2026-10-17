@@ -279,6 +279,8 @@ raison. Fondu en un seul écran à deux modes d'affichage.
 vidéos du groupe. Tout se fait au clavier : touches d'espèce configurables, `1`/`2`/`3`
 pour la confiance, `0` pour « rien », `Entrée` pour valider et passer à la suite,
 `←`/`→` pour naviguer, `Espace` pour la lecture. C'est la vue du dépouillement fin.
+Maj+E (ou l'étoile de la barre) met la vidéo lue en favorite sans rien valider : c'est
+en dépouillant qu'on tombe sur la belle image (§7).
 
 Dans les deux : scinder une séquence à la vidéo courante, fusionner avec la précédente.
 
@@ -403,7 +405,8 @@ laissent forcément de côté.
 
 **Favorites.** Une étoile posée à la main sur une **vidéo** (pas sur la séquence : dans un
 passage de cinq déclenchements, c'est souvent un seul qui vaut d'être revu). Elle se pose
-depuis la liste, la grille (au survol), le lecteur, ou sur toute une sélection ; le filtre
+depuis la liste, la grille (au survol), le lecteur, le dépouillement plein écran, ou sur
+toute une sélection ; le filtre
 « Favorites seulement » de la vue vidéo les retrouve. Stockée en `videos.favorite_at`
 (migration 008) : la date où elle a été posée reste connue, et remarquer une favorite ne
 la réécrit pas.
@@ -464,8 +467,10 @@ les listes déroulantes natives plus basses que les champs, elles sont redessin�
 
 Le lecteur de l'onglet Vidéos se tient au clavier comme le dépouillement : flèches
 gauche et droite pour passer d'une vidéo à l'autre sans revenir à la liste, espace pour
-suspendre, `F` pour le plein écran, Maj+M pour le son, Maj+F pour mettre ou retirer
-la vidéo des favorites, Échap pour sortir.
+suspendre, `F` pour le plein écran, Maj+M pour le son, Maj+E pour mettre ou retirer
+la vidéo des favorites, Échap pour sortir. Maj+E (« étoile ») et non Maj+F : au
+dépouillement, Maj+F fusionne les séquences, et un même geste ne doit pas marquer une
+vidéo d'un côté et défaire un regroupement de l'autre.
 
 Le plein écran **ne passe pas par l'API du navigateur** : WKWebView, qui affiche
 l'application, n'expose pas `requestFullscreen` — le clic ne faisait rien du tout. C'est

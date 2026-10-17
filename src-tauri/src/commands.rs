@@ -353,7 +353,7 @@ pub fn list_sequence_videos(
     let conn = db.conn.lock().unwrap();
     let sql = format!(
         "SELECT v.id, v.file_name, v.file_path, v.thumbnail_path, {eff}, v.duration_s,
-                v.file_state
+                v.file_state, v.favorite_at IS NOT NULL
          FROM videos v JOIN traps t ON t.id = v.trap_id
          WHERE v.sequence_id = ?1 AND v.deleted_at IS NULL
          ORDER BY {eff}, v.file_name",
@@ -369,6 +369,7 @@ pub fn list_sequence_videos(
             recorded_at: r.get(4)?,
             duration_s: r.get(5)?,
             file_state: r.get(6)?,
+            favorite: r.get::<_, i64>(7)? != 0,
         })
     })?;
     Ok(rows.collect::<Result<Vec<_>, _>>()?)
@@ -383,6 +384,7 @@ pub struct SequenceVideo {
     pub recorded_at: Option<String>,
     pub duration_s: Option<f64>,
     pub file_state: String,
+    pub favorite: bool,
 }
 
 // --- Grille et annotation -------------------------------------------------

@@ -94,6 +94,7 @@ export type SequenceVideo = {
   recorded_at: string | null;
   duration_s: number | null;
   file_state: string;
+  favorite: boolean;
 };
 
 export type RegroupReport = {

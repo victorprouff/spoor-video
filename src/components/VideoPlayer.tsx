@@ -119,9 +119,9 @@ export function VideoPlayer({
         e.preventDefault();
         return full ? toggleFull() : close();
       }
-      // Avant « F » seul : le test de la touche ignore la casse, Maj+F ouvrirait sinon
-      // le plein écran au lieu de marquer la vidéo.
-      if (e.shiftKey && e.key.toLowerCase() === 'f') {
+      // Maj+E comme « étoile », le même raccourci qu'au dépouillement, où Maj+F fusionne
+      // les séquences.
+      if (e.shiftKey && e.key.toLowerCase() === 'e') {
         e.preventDefault();
         return onToggleFavorite?.();
       }
@@ -190,7 +190,7 @@ export function VideoPlayer({
               onClick={onToggleFavorite}
               aria-pressed={!!favorite}
               aria-label="Favorite"
-              title={favorite ? 'Favorite — retirer (Maj+F)' : 'Marquer comme favorite (Maj+F)'}
+              title={favorite ? 'Favorite — retirer (Maj+E)' : 'Marquer comme favorite (Maj+E)'}
             >
               <StarIcon filled={!!favorite} />
             </button>
